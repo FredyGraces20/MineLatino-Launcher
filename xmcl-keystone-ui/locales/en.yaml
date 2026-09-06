@@ -35,9 +35,19 @@ HomeLaunchMultiInstanceDialog:
   confirm: Yes, Launch
   description: You are launching multiple instances of Minecraft. Are you sure?
   title: Multiple Instances
+MineLatinoAssistant:
+  title: AI Assistant
+  tooltip: Ask the MineLatino AI assistant
 MineLatinoAuth:
   offlineWarning: 'Non-premium accounts only work when the server accepts them. If MineLatino runs in online mode, the game rejects you with "Failed to verify username".'
   offlineWarningDismiss: Don't show again
+MineLatinoClasificaciones:
+  error: The leaderboard could not be loaded.
+  loading: Loading leaderboard…
+  openExternal: Open in browser
+  retry: Retry
+  subtitle: Server player rankings
+  title: Leaderboards
 MineLatinoHome:
   announcement: Announcement
   attachment: Attachment
@@ -70,16 +80,25 @@ MineLatinoNav:
   actualizaciones: Updates
   actualizar: Update
   anuncios: Announcements
+  clasificaciones: Leaderboards
   jugar: Play
   tienda: Store
 MineLatinoPlay:
   addVersion: Add version
+  copied: Copied
+  copyAddress: Copy server address
   empezar: Start
+  latency: Latency
   login: Sign in
   noProfile: No profile yet. Create one below to start playing.
-  players: '{online}/{max} players'
+  offline: Offline
+  online: Online
+  pingMs: '{ms} ms'
+  players: '{online}/{max}'
   playersOffline: Server unreachable
+  playersOnline: Players online
   startTitle: MineLatino
+  version: Version
 MineLatinoPreset:
   create: Create profile
   created: Profile {name} created
@@ -105,6 +124,7 @@ MineLatinoShell:
   logoutTitle: Sign out?
   mostPlayed: Most played
   mostPlayedEmpty: You have not played any profile yet.
+  navigation: Navigation
   noSelectedProfile: No profile selected
   options: Settings
   playingAs: Playing as

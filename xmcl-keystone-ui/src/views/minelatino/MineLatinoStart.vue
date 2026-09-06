@@ -322,8 +322,11 @@ function plain(source: string) {
     0 6px 16px -10px rgba(0, 0, 0, 0.5);
 }
 
+/* Kept shallow with a long perspective on purpose: a card is 240px+ tall, so
+   the 9deg that reads as a key press on a 36px button would look like the
+   whole panel toppling forward here. */
 .ml-card:active {
-  transform: translateY(-1px) scale(0.99);
+  transform: perspective(1200px) rotateX(4deg) translateY(-1px) scale(0.99);
 }
 
 .ml-card:focus-visible {

@@ -473,6 +473,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       id: options.id,
       title: options.title || this.#config.branding.name,
       url: options.url,
+      injectCss: options.injectCss,
     })
   }
 

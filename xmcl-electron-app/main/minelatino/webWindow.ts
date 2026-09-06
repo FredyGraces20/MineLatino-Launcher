@@ -20,6 +20,8 @@ export interface MineLatinoWebWindowOptions {
   id: string
   title?: string
   url: string
+  /** Stylesheet injected on every navigation; see the runtime-api type. */
+  injectCss?: string
 }
 
 /**
@@ -99,6 +101,16 @@ export class MineLatinoWebWindows {
       void this.openExternal(url).catch(() => undefined)
       return { action: 'deny' }
     })
+
+    if (options.injectCss) {
+      // Re-inject on every `dom-ready`: navigating inside the site builds a
+      // fresh document, and a stylesheet inserted once only lives in the old
+      // one. Failures (e.g. the window closed mid-injection) are harmless.
+      const css = options.injectCss
+      win.webContents.on('dom-ready', () => {
+        win.webContents.insertCSS(css).catch(() => undefined)
+      })
+    }
 
     emitChange()
     win.loadURL(options.url).catch((error: Error) => {

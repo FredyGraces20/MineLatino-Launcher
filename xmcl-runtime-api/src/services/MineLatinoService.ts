@@ -241,6 +241,15 @@ export interface MineLatinoWebWindowOptions {
   url: string
   /** Force the system browser for stores that refuse embedded webviews. */
   externalBrowser?: boolean
+  /**
+   * Extra stylesheet injected into the page, re-applied on every navigation
+   * so a site that re-renders keeps honouring it. Used to show only part of a
+   * page (e.g. the assistant chat without its navbar/footer).
+   *
+   * Ignored when `externalBrowser` is set, since the system browser owns the
+   * page and nothing can be injected into it.
+   */
+  injectCss?: string
 }
 
 export interface MineLatinoWebWindowInfo {

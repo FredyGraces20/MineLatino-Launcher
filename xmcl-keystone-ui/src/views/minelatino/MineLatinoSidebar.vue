@@ -1,8 +1,8 @@
 <!--
   MineLatino left rail: the launcher's whole navigation in one column — the
-  four content destinations (Jugar / Anuncios / Actualizaciones / Tienda), the
-  player's three most-played profiles, and the session actions at the bottom
-  (options, launcher self-update, sign out).
+  five content destinations (Jugar / Anuncios / Actualizaciones / Tienda /
+  Clasificaciones), the player's three most-played profiles, and the session
+  actions at the bottom (options, launcher self-update, sign out).
 
   Injects `kInstances` from the main window context; "most played" is simply
   the instance list sorted by the `playtime` the runtime accumulates per
@@ -13,8 +13,11 @@
     class="ml-side visible-scroll flex flex-col gap-4 overflow-y-auto p-3"
     :aria-label="t('MineLatinoPlay.startTitle')"
   >
-    <!-- The four content destinations. -->
+    <!-- The five content destinations. -->
     <div class="flex flex-col gap-1">
+      <div class="ml-side-title">
+        {{ t('MineLatinoShell.navigation') }}
+      </div>
       <RouterLink
         v-for="item in nav"
         :key="item.key"
@@ -23,9 +26,11 @@
         :to="item.to"
         :data-testid="`minelatino-nav-${item.key}`"
       >
-        <v-icon size="20" aria-hidden="true">
-          {{ item.icon }}
-        </v-icon>
+        <span class="ml-side-icon">
+          <v-icon size="18" aria-hidden="true">
+            {{ item.icon }}
+          </v-icon>
+        </span>
         <span class="ml-side-label">{{ t(`MineLatinoNav.${item.key}`) }}</span>
       </RouterLink>
     </div>
@@ -65,6 +70,7 @@
     <div class="flex-grow" />
 
     <!-- Session actions, pinned to the bottom of the rail. -->
+    <div class="ml-side-sep" role="presentation" />
     <div class="flex flex-col gap-1">
       <button
         type="button"
@@ -72,9 +78,11 @@
         data-testid="minelatino-options"
         @click="router.push('/setting')"
       >
-        <v-icon size="20" aria-hidden="true">
-          settings
-        </v-icon>
+        <span class="ml-side-icon">
+          <v-icon size="18" aria-hidden="true">
+            settings
+          </v-icon>
+        </span>
         <span class="ml-side-label">{{ t('MineLatinoShell.options') }}</span>
       </button>
 
@@ -83,9 +91,11 @@
         to="/minelatino/actualizar"
         data-testid="minelatino-update"
       >
-        <v-icon size="20" aria-hidden="true">
-          system_update
-        </v-icon>
+        <span class="ml-side-icon">
+          <v-icon size="18" aria-hidden="true">
+            system_update
+          </v-icon>
+        </span>
         <span class="ml-side-label">{{ t('MineLatinoNav.actualizar') }}</span>
         <span
           v-if="updateAvailable"
@@ -102,9 +112,11 @@
         data-testid="minelatino-logout"
         @click="logoutDialog = true"
       >
-        <v-icon size="20" aria-hidden="true">
-          logout
-        </v-icon>
+        <span class="ml-side-icon">
+          <v-icon size="18" aria-hidden="true">
+            logout
+          </v-icon>
+        </span>
         <span class="ml-side-label">{{ t('MineLatinoShell.logout') }}</span>
       </button>
     </div>
@@ -146,6 +158,7 @@ const nav = [
   { key: 'anuncios', icon: 'campaign', to: '/minelatino/anuncios' },
   { key: 'actualizaciones', icon: 'new_releases', to: '/minelatino/actualizaciones' },
   { key: 'tienda', icon: 'storefront', to: '/minelatino/tienda' },
+  { key: 'clasificaciones', icon: 'emoji_events', to: '/minelatino/clasificaciones' },
 ]
 
 function isActive(to: string) {
@@ -213,10 +226,11 @@ async function onLogout() {
 }
 
 .ml-side-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 10px;
   color: inherit;
   font: inherit;
@@ -237,8 +251,30 @@ async function onLogout() {
   box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
 }
 
+/* Icon tile: gives every row the same visual anchor, and lights up with the
+   accent when its row is the active destination. */
+.ml-side-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background-color: rgba(var(--v-theme-on-surface), 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  flex-grow: 0;
+  flex-shrink: 0;
+  transition: background-color 0.18s ease, box-shadow 0.2s ease;
+}
+
+.ml-side-item:hover .ml-side-icon {
+  background-color: rgba(var(--v-theme-on-surface), 0.13);
+}
+
+/* Shorter perspective than the cards: the row is only ~36px tall, so it needs
+   a nearer viewpoint for the tilt to be visible at all. */
 .ml-side-item:active {
-  transform: translateX(1px) scale(0.98);
+  transform: perspective(600px) rotateX(7deg) translateX(1px) scale(0.98);
 }
 
 .ml-side-item:focus-visible {
@@ -253,6 +289,28 @@ async function onLogout() {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 8px 20px -14px color-mix(in srgb, var(--ml-accent) 90%, transparent);
+}
+
+/* Accent tick in the rail's gutter, so the active destination reads at a
+   glance even when the label is scanned past. */
+.ml-side-item--active::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-color: var(--ml-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ml-accent) 70%, transparent);
+}
+
+.ml-side-item--active .ml-side-icon {
+  background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 4px 10px -6px color-mix(in srgb, var(--ml-accent) 80%, transparent);
 }
 
 .ml-side-item--danger:hover {
@@ -282,6 +340,18 @@ async function onLogout() {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ml-accent) 25%, transparent);
   flex-grow: 0;
   flex-shrink: 0;
+}
+
+/* Hairline that sets the session actions apart from the content above. */
+.ml-side-sep {
+  height: 1px;
+  margin: 2px 6px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--v-theme-on-surface), 0.16),
+    transparent
+  );
 }
 
 .ml-side-title {
@@ -346,6 +416,9 @@ async function onLogout() {
   flex-grow: 0;
   flex-shrink: 0;
   background-color: rgba(var(--v-theme-on-surface), 0.08);
+  box-shadow:
+    0 0 0 1px rgba(var(--v-theme-on-surface), 0.12),
+    0 6px 14px -10px rgba(0, 0, 0, 0.8);
 }
 
 .ml-side-profile-text {

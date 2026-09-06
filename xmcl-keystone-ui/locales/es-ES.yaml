@@ -36,9 +36,19 @@ HomeLaunchMultiInstanceDialog:
   confirm: Sí, Lanzar
   description: Estás lanzando varias instancias de Minecraft. ¿Está seguro?
   title: Múltiples instancias
+MineLatinoAssistant:
+  title: Asistente IA
+  tooltip: Pregunta al asistente IA de MineLatino
 MineLatinoAuth:
   offlineWarning: 'Las cuentas sin premium solo funcionan si el servidor las acepta. Si MineLatino está en modo online, el juego te rechazará con "Failed to verify username".'
   offlineWarningDismiss: No mostrar de nuevo
+MineLatinoClasificaciones:
+  error: No se pudo cargar la clasificación.
+  loading: Cargando la clasificación…
+  openExternal: Abrir en el navegador
+  retry: Reintentar
+  subtitle: Ranking de jugadores del servidor
+  title: Clasificaciones
 MineLatinoHome:
   announcement: Anuncio
   attachment: Archivo adjunto
@@ -71,16 +81,25 @@ MineLatinoNav:
   actualizaciones: Actualizaciones
   actualizar: Actualizar
   anuncios: Anuncios
+  clasificaciones: Clasificaciones
   jugar: Jugar
   tienda: Tienda
 MineLatinoPlay:
   addVersion: Añadir versión
+  copied: Copiado
+  copyAddress: Copiar la dirección del servidor
   empezar: Empezar
+  latency: Latencia
   login: Iniciar sesión
   noProfile: Todavía no tienes ningún perfil. Crea uno abajo para empezar a jugar.
-  players: '{online}/{max} jugadores'
+  offline: Sin conexión
+  online: En línea
+  pingMs: '{ms} ms'
+  players: '{online}/{max}'
   playersOffline: Servidor sin conexión
+  playersOnline: Jugadores en línea
   startTitle: MineLatino
+  version: Versión
 MineLatinoPreset:
   create: Crear perfil
   created: Perfil {name} creado
@@ -106,6 +125,7 @@ MineLatinoShell:
   logoutTitle: ¿Cerrar sesión?
   mostPlayed: Más jugados
   mostPlayedEmpty: Aún no has jugado ningún perfil.
+  navigation: Navegación
   noSelectedProfile: Ningún perfil seleccionado
   options: Opciones
   playingAs: Jugando como

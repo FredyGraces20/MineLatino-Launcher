@@ -135,10 +135,11 @@ export const router = createRouter({
       meta: { workspaceSidePanel: true },
     },
     {
-      // Branded MineLatino interface: a big-tile shell with five destinations
-      // (Jugar / Tienda / Anuncios / Actualizaciones / Actualizar), each its own
-      // full screen. `Context.ts` routes here on startup for a configured build;
-      // an unbranded build never enters it and keeps the stock XMCL interface.
+      // Branded MineLatino interface: a big-tile shell with six destinations
+      // (Jugar / Tienda / Anuncios / Actualizaciones / Clasificaciones /
+      // Actualizar), each its own full screen. `Context.ts` routes here on
+      // startup for a configured build; an unbranded build never enters it and
+      // keeps the stock XMCL interface.
       // The reused XMCL instance screens (`/mods`, `/resourcepacks`,
       // `/shaderpacks`), `/setting` and `/me` are reached from Jugar.
       path: '/minelatino',
@@ -163,6 +164,10 @@ export const router = createRouter({
         {
           path: 'actualizaciones',
           component: () => import('@/views/minelatino/MineLatinoUpdatesScreen.vue'),
+        },
+        {
+          path: 'clasificaciones',
+          component: () => import('@/views/minelatino/MineLatinoClasificacionesScreen.vue'),
         },
         {
           path: 'actualizar',

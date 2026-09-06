@@ -285,12 +285,20 @@ html ::-webkit-scrollbar {
 
 /* ── App-wide 3D button feel ────────────────────────────────────────────
    Every Vuetify button gets a raised, tactile look: a soft top-light sheen
-   plus a layered drop shadow for depth, and springy hover / press motion.
-   `text` and `plain` variants stay flat (no shadow, no lift) so dense
-   toolbars and inline actions keep their quiet appearance. All motion is
-   composited (transform / filter / box-shadow) so it never reflows
-   neighbours. Colours come from the active theme, so this works in both
-   light and dark mode. */
+   plus a layered drop shadow for depth, a springy hover lift, and a press
+   that tips the face back in real 3D (`perspective() rotateX()`) rather than
+   just shrinking it. `text` and `plain` variants stay flat (no shadow, no
+   lift, no tilt) so dense toolbars and inline actions keep their quiet
+   appearance. All motion is composited (transform / filter / box-shadow) so
+   it never reflows neighbours. Colours come from the active theme, so this
+   works in both light and dark mode.
+
+   Two deliberate constraints on the tilt. `perspective()` lives in the
+   transform list instead of on a parent, so the rule is self-contained and
+   needs no wrapper element. And `transform-origin` is left at its default
+   centre: callsites such as `UserCardAddYggdrasilService.vue` and
+   `UserLoginForm.vue` put their own `hover:scale-*` / `active:translate-y-*`
+   utilities on `v-btn`, so moving the shared origin would reposition those. */
 .v-btn {
     transition:
         transform 0.16s cubic-bezier(0.4, 0, 0.2, 1),
@@ -328,9 +336,12 @@ html ::-webkit-scrollbar {
         0 6px 14px -6px rgba(0, 0, 0, 0.45) !important;
 }
 
-/* Press: push back down and invert the sheen for a physical click. */
+/* Press: tip the face back in 3D, settle it down a pixel, and invert the
+   sheen — a physical key being pushed, not a flat shrink. A positive rotateX
+   sends the top edge away from the viewer, which is what sells the depth
+   against the flattened inset shadow below. */
 .v-btn:not(.v-btn--disabled):not(.v-btn--variant-text):not(.v-btn--variant-plain):active {
-    transform: translateY(0) scale(0.97);
+    transform: perspective(700px) rotateX(9deg) translateY(1px) scale(0.985);
     filter: brightness(0.97);
 }
 
