@@ -186,6 +186,54 @@ export interface MineLatinoUpdatesResult {
   error?: string
 }
 
+/** One top-level shop category (a game mode) the catalog's first level offers. */
+export interface MineLatinoStoreCategory {
+  id: number
+  name: string
+  slug: string
+  /** Number of products under this category. */
+  count: number
+  image?: string
+}
+
+/**
+ * One product. `permalink` is the shop page opened in a launcher window when the
+ * player picks it; prices are pre-formatted by the backend.
+ */
+export interface MineLatinoStoreProduct {
+  id: number
+  name: string
+  slug: string
+  permalink: string
+  shortDescription: string
+  image?: string
+  /** Formatted current price, e.g. `$499`. Empty when the product has none. */
+  priceText: string
+  /** Formatted pre-discount price, present only when it differs from `priceText`. */
+  regularPriceText?: string
+  onSale: boolean
+  inStock: boolean
+}
+
+export interface MineLatinoStoreResult {
+  categories: MineLatinoStoreCategory[]
+  fetchedAt: number
+  /** True when the backend or shop failed and this is the last known copy. */
+  stale: boolean
+  error?: string
+}
+
+export interface MineLatinoStoreProductsResult {
+  /** The category these products belong to. */
+  category: number
+  items: MineLatinoStoreProduct[]
+  /** Full product count for the category, which may exceed `items.length`. */
+  total: number
+  fetchedAt: number
+  stale: boolean
+  error?: string
+}
+
 export interface MineLatinoWebWindowOptions {
   /** Reused when the window is already open, so a second click focuses it. */
   id: string
@@ -209,6 +257,7 @@ export interface MineLatinoServiceEventMap {
   'config': MineLatinoConfig
   'news': MineLatinoNewsResult
   'updates': MineLatinoUpdatesResult
+  'store': MineLatinoStoreResult
   'webWindows': MineLatinoWebWindowInfo[]
 }
 
@@ -225,6 +274,18 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
 
   /** Latest website publications. Never rejects: falls back to the cache. */
   getUpdates(force?: boolean): Promise<MineLatinoUpdatesResult>
+
+  /**
+   * The shop catalog's top-level categories (game modes). Never rejects: falls
+   * back to the cache, and an empty list means "show only the store link".
+   */
+  getStore(force?: boolean): Promise<MineLatinoStoreResult>
+
+  /**
+   * The products under one category, fetched on demand when the player picks a
+   * game mode. Never rejects: falls back to whatever the backend returned last.
+   */
+  getStoreProducts(category: number, force?: boolean): Promise<MineLatinoStoreProductsResult>
 
   /** The backend this launcher talks to, shown in diagnostics. */
   getBackendUrl(): Promise<string>

@@ -7,6 +7,10 @@ import {
   type MineLatinoNewsItem,
   type MineLatinoNewsResult,
   type MineLatinoService as IMineLatinoService,
+  type MineLatinoStoreCategory,
+  type MineLatinoStoreProduct,
+  type MineLatinoStoreProductsResult,
+  type MineLatinoStoreResult,
   type MineLatinoUpdateItem,
   type MineLatinoUpdatesResult,
   type MineLatinoWebWindowInfo,
@@ -33,6 +37,9 @@ import { MineLatinoWebWindows } from './webWindow'
 const NEWS_TTL_MS = 60_000
 const UPDATES_TTL_MS = 60_000
 const CONFIG_TTL_MS = 5 * 60_000
+/** The catalog changes rarely, so its categories and per-mode products last longer. */
+const STORE_TTL_MS = 5 * 60_000
+const STORE_PRODUCTS_TTL_MS = 5 * 60_000
 /** Periodic refresh while the launcher stays open. */
 const REFRESH_INTERVAL_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 15_000
@@ -114,12 +121,48 @@ function normalizeUpdateItem(raw: unknown): MineLatinoUpdateItem | undefined {
   }
 }
 
+function normalizeStoreCategory(raw: unknown): MineLatinoStoreCategory | undefined {
+  const source = asObject(raw)
+  const id = asNumber(source.id, Number.NaN)
+  const name = asString(source.name)
+  if (!Number.isFinite(id) || !name) return undefined
+  return {
+    id,
+    name,
+    slug: asString(source.slug),
+    count: asNumber(source.count, 0),
+    image: asString(source.image) || undefined,
+  }
+}
+
+function normalizeStoreProduct(raw: unknown): MineLatinoStoreProduct | undefined {
+  const source = asObject(raw)
+  const id = asNumber(source.id, Number.NaN)
+  const permalink = asString(source.permalink)
+  if (!Number.isFinite(id) || !permalink) return undefined
+  return {
+    id,
+    name: asString(source.name),
+    slug: asString(source.slug),
+    permalink,
+    shortDescription: asString(source.shortDescription),
+    image: asString(source.image) || undefined,
+    priceText: asString(source.priceText),
+    regularPriceText: asString(source.regularPriceText) || undefined,
+    onSale: source.onSale === true,
+    inStock: source.inStock !== false,
+  }
+}
+
 @ExposeServiceKey(MineLatinoServiceKey)
 export class MineLatinoService extends AbstractService implements IMineLatinoService {
   readonly #backendUrl = resolveBackendUrl()
   #config: MineLatinoConfig = FALLBACK_CONFIG
   #news: MineLatinoNewsResult = { items: [], fetchedAt: 0, stale: true, source: 'discord' }
   #updates: MineLatinoUpdatesResult = { items: [], fetchedAt: 0, stale: true, provider: 'none' }
+  #store: MineLatinoStoreResult = { categories: [], fetchedAt: 0, stale: true }
+  /** Per-category product pages, cached in memory (not persisted) on demand. */
+  #storeProducts = new Map<number, MineLatinoStoreProductsResult>()
   #configFetchedAt = 0
   #refreshing: Promise<void> | undefined
   #timer: NodeJS.Timeout | undefined
@@ -155,10 +198,11 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   }
 
   async #restore() {
-    const [cachedConfig, cachedNews, cachedUpdates] = await Promise.all([
+    const [cachedConfig, cachedNews, cachedUpdates, cachedStore] = await Promise.all([
       this.#readJson<{ fetchedAt: number, config: unknown }>('config.json'),
       this.#readJson<unknown>('news.json'),
       this.#readJson<unknown>('updates.json'),
+      this.#readJson<unknown>('store.json'),
     ])
 
     if (cachedConfig) {
@@ -193,7 +237,19 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       }
     }
 
-    this.log(`Restored MineLatino cache: ${this.#news.items.length} news, ${this.#updates.items.length} updates`)
+    const store = asObject(cachedStore)
+    const categories = Array.isArray(store.categories)
+      ? store.categories.map(normalizeStoreCategory).filter((c): c is MineLatinoStoreCategory => !!c)
+      : undefined
+    if (categories) {
+      this.#store = {
+        categories,
+        fetchedAt: asNumber(store.fetchedAt, 0),
+        stale: true,
+      }
+    }
+
+    this.log(`Restored MineLatino cache: ${this.#news.items.length} news, ${this.#updates.items.length} updates, ${this.#store.categories.length} store categories`)
   }
 
   async #readJson<T>(name: string): Promise<T | undefined> {
@@ -234,6 +290,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         this.#fetchConfig(),
         this.#fetchNews(),
         this.#fetchUpdates(),
+        this.#fetchStore(),
       ]).then(() => {}, () => {}).finally(() => { this.#refreshing = undefined })
     }
     return this.#refreshing
@@ -306,6 +363,32 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     }
   }
 
+  async #fetchStore() {
+    try {
+      const { ok, body } = await this.#request('/api/store')
+      const source = asObject(body)
+      // An empty list is valid (catalog disabled or no categories yet); only a
+      // non-array means the backend did not answer with a catalog at all.
+      const categories = Array.isArray(source.categories)
+        ? source.categories.map(normalizeStoreCategory).filter((c): c is MineLatinoStoreCategory => !!c)
+        : undefined
+      if (!categories) throw new Error(asString(source.error) || 'GET /api/store returned no categories')
+      this.#store = {
+        categories,
+        fetchedAt: asNumber(source.fetchedAt, Date.now()),
+        stale: !ok || source.stale === true,
+        error: asString(source.error) || undefined,
+      }
+      await this.#writeJson('store.json', this.#store)
+      this.emit('store', this.#store)
+    }
+    catch (error) {
+      this.#store = { ...this.#store, stale: true, error: (error as Error).message }
+      this.emit('store', this.#store)
+      this.warn(`MineLatino store refresh failed: ${(error as Error).message}`)
+    }
+  }
+
   #isStale(fetchedAt: number, ttl: number) {
     return Date.now() - fetchedAt > ttl
   }
@@ -329,6 +412,46 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     if (force) await this.#fetchUpdates()
     else if (this.#isStale(this.#updates.fetchedAt, UPDATES_TTL_MS)) void this.#refresh()
     return this.#updates
+  }
+
+  async getStore(force?: boolean): Promise<MineLatinoStoreResult> {
+    await this.initialize()
+    if (force) await this.#fetchStore()
+    else if (this.#isStale(this.#store.fetchedAt, STORE_TTL_MS)) void this.#fetchStore()
+    return this.#store
+  }
+
+  async getStoreProducts(category: number, force?: boolean): Promise<MineLatinoStoreProductsResult> {
+    await this.initialize()
+    const cached = this.#storeProducts.get(category)
+    if (!force && cached && !this.#isStale(cached.fetchedAt, STORE_PRODUCTS_TTL_MS)) return cached
+    try {
+      const { ok, body } = await this.#request(`/api/store/products?category=${category}`)
+      const source = asObject(body)
+      const items = Array.isArray(source.items)
+        ? source.items.map(normalizeStoreProduct).filter((p): p is MineLatinoStoreProduct => !!p)
+        : []
+      const result: MineLatinoStoreProductsResult = {
+        category,
+        items,
+        total: asNumber(source.total, items.length),
+        fetchedAt: asNumber(source.fetchedAt, Date.now()),
+        stale: !ok || source.stale === true,
+        error: asString(source.error) || undefined,
+      }
+      this.#storeProducts.set(category, result)
+      return result
+    }
+    catch (error) {
+      // Serve the last good copy for this mode; only a first-time failure is empty.
+      if (cached) {
+        const stale: MineLatinoStoreProductsResult = { ...cached, stale: true, error: (error as Error).message }
+        this.#storeProducts.set(category, stale)
+        return stale
+      }
+      this.warn(`MineLatino store products refresh failed: ${(error as Error).message}`)
+      return { category, items: [], total: 0, fetchedAt: 0, stale: true, error: (error as Error).message }
+    }
   }
 
   async getBackendUrl(): Promise<string> {

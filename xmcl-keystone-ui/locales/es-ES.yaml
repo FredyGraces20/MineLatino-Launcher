@@ -109,6 +109,18 @@ MineLatinoRequiredMods:
   openInStore: Buscar en Modrinth
   playAnyway: Jugar de todos modos
   title: Faltan mods requeridos
+MineLatinoStore:
+  catalogEmpty: Todavía no hay categorías disponibles.
+  catalogError: No se pudo cargar el catálogo de la tienda.
+  categories: Categorías
+  chooseCategory: Elige una categoría para ver sus productos.
+  openProduct: Ver producto
+  outOfStock: Agotado
+  productCount: '{count} productos'
+  productsEmpty: Todavía no hay productos en esta categoría.
+  productsError: No se pudieron cargar los productos.
+  sale: Oferta
+  subtitle: Explora la tienda por modo de juego y abre cualquier producto para comprarlo.
 MineLatinoUpdate:
   available: Nueva versión disponible
   check: Buscar actualizaciones

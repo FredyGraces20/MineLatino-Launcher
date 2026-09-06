@@ -5,6 +5,9 @@ import type {
   MineLatinoNewsResult,
   MineLatinoService,
   MineLatinoServiceEventMap,
+  MineLatinoStoreProduct,
+  MineLatinoStoreProductsResult,
+  MineLatinoStoreResult,
   MineLatinoUpdateItem,
   MineLatinoUpdatesResult,
   MineLatinoWebWindowInfo,
@@ -30,6 +33,11 @@ const EMPTY_UPDATES: MineLatinoUpdatesResult = {
   fetchedAt: 0,
   stale: true,
   provider: 'none',
+}
+const EMPTY_STORE: MineLatinoStoreResult = {
+  categories: [],
+  fetchedAt: 0,
+  stale: true,
 }
 
 /** The window id the store button reuses, so a second click focuses it. */
@@ -259,6 +267,12 @@ export function useMineLatino() {
   const config = shallowRef<MineLatinoConfig | undefined>()
   const news = shallowRef<MineLatinoNewsResult>(EMPTY_NEWS)
   const updates = shallowRef<MineLatinoUpdatesResult>(EMPTY_UPDATES)
+  const storeCatalog = shallowRef<MineLatinoStoreResult>(EMPTY_STORE)
+  /** Products per selected category id, kept so switching back is instant. */
+  const storeProducts = shallowRef<Record<number, MineLatinoStoreProductsResult>>({})
+  const selectedStoreCategory = shallowRef<number | null>(null)
+  const storeLoading = shallowRef(false)
+  const storeProductsLoading = shallowRef(false)
   const webWindows = shallowRef<MineLatinoWebWindowInfo[]>([])
   const isValidating = shallowRef(false)
   const backendUrl = shallowRef('')
@@ -266,6 +280,7 @@ export function useMineLatino() {
   useServiceEvent(service, 'config', (fresh) => { config.value = fresh })
   useServiceEvent(service, 'news', (fresh) => { news.value = fresh })
   useServiceEvent(service, 'updates', (fresh) => { updates.value = fresh })
+  useServiceEvent(service, 'store', (fresh) => { storeCatalog.value = fresh })
   useServiceEvent(service, 'webWindows', (fresh) => { webWindows.value = fresh })
 
   /**
@@ -276,14 +291,16 @@ export function useMineLatino() {
   async function mutate() {
     isValidating.value = true
     try {
-      const [nextConfig, nextNews, nextUpdates] = await Promise.all([
+      const [nextConfig, nextNews, nextUpdates, nextStore] = await Promise.all([
         service.getConfig(),
         service.getNews(),
         service.getUpdates(),
+        service.getStore(),
       ])
       config.value = nextConfig
       news.value = nextNews
       updates.value = nextUpdates
+      storeCatalog.value = nextStore
     } finally {
       isValidating.value = false
     }
@@ -347,6 +364,19 @@ export function useMineLatino() {
   const hasStore = computed(() => !!store.value?.url)
   const storeTabs = computed(() => store.value?.tabs ?? [])
   const isStoreOpen = computed(() => webWindows.value.some(w => w.id === STORE_WINDOW_ID))
+
+  /** The catalog's first level: the shop's top-level game-mode categories. */
+  const storeCategories = computed(() => storeCatalog.value.categories)
+  /** Products of the selected mode; empty until one is chosen. */
+  const selectedStoreProducts = computed(() => {
+    const id = selectedStoreCategory.value
+    return id == null ? [] : storeProducts.value[id]?.items ?? []
+  })
+  /** The selected mode's full result (total/stale/error) for its header. */
+  const selectedStoreProductsResult = computed(() => {
+    const id = selectedStoreCategory.value
+    return id == null ? undefined : storeProducts.value[id]
+  })
 
   /**
    * Whether the backend handed over anything worth a dedicated home section.
@@ -438,11 +468,56 @@ export function useMineLatino() {
     return service.getUpdates(true).then((result) => { updates.value = result }).catch(() => {})
   }
 
+  /** Re-pull the catalog's categories (the manual refresh on the Tienda screen). */
+  function refreshStore() {
+    storeLoading.value = true
+    return service.getStore(true)
+      .then((result) => { storeCatalog.value = result })
+      .catch(() => {})
+      .finally(() => { storeLoading.value = false })
+  }
+
+  /**
+   * Selecting a game mode shows its products. The first selection fetches them
+   * (the main process caches per category too); switching back is instant.
+   */
+  function selectStoreCategory(id: number) {
+    selectedStoreCategory.value = id
+    if (storeProducts.value[id]) return Promise.resolve()
+    storeProductsLoading.value = true
+    return service.getStoreProducts(id)
+      .then((result) => { storeProducts.value = { ...storeProducts.value, [id]: result } })
+      .catch(() => {})
+      .finally(() => { storeProductsLoading.value = false })
+  }
+
+  /**
+   * Opens a product's shop page in its own window (or the system browser when
+   * the operator forced external), reusing the store's web-window pool.
+   */
+  function openProduct(product: MineLatinoStoreProduct) {
+    if (!product.permalink) return
+    if (store.value?.openInExternalBrowser) {
+      openInBrowser(product.permalink)
+      return
+    }
+    void service.openWebWindow({
+      id: `minelatino-product-${product.id}`,
+      title: product.name,
+      url: product.permalink,
+    })
+  }
+
   return {
     // state
     config,
     news,
     updates,
+    storeCatalog,
+    storeProducts,
+    selectedStoreCategory,
+    storeLoading,
+    storeProductsLoading,
     webWindows,
     isValidating,
     backendUrl,
@@ -466,11 +541,17 @@ export function useMineLatino() {
     hasStore,
     storeTabs,
     isStoreOpen,
+    storeCategories,
+    selectedStoreProducts,
+    selectedStoreProductsResult,
     isConfigured,
     // actions
     mutate,
     refreshNews,
     refreshUpdates,
+    refreshStore,
+    selectStoreCategory,
+    openProduct,
     openStore,
     closeStore,
     openTab,
