@@ -5,6 +5,8 @@ import { platform } from 'os'
 import { writeFile } from 'fs-extra'
 import { isNiri } from '@/utils/niri'
 import { isMonitorSelectionSupported } from '@/utils/moveWindowToMonitor'
+import { request as httpsRequest } from 'https'
+import { request as httpRequest } from 'http'
 
 
 export enum Operation {
@@ -183,19 +185,57 @@ export const windowController: ControllerPlugin = function (this: ElectronContro
     return false
   })
 
-  // Direct HTTP proxy for renderer — uses Node.js global fetch (undici)
-  // which completely bypasses Chromium's network stack and session protocol
-  // handlers. Handles redirects automatically.
-  ipcMain.handle('net-fetch', async (_event, url: string) => {
-    try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 15_000)
-      const response = await fetch(url, { signal: controller.signal })
-      clearTimeout(timer)
-      const text = await response.text()
-      return { status: response.status, ok: response.ok, text }
-    } catch {
-      return { status: 0, ok: false, text: '' }
-    }
+  // Direct HTTP proxy for renderer — uses Node.js https/http modules which
+  // completely bypass Chromium's network stack and session protocol handlers.
+  // Manually follows redirects (https.request does not follow them by default).
+  ipcMain.handle('net-fetch', (_event, url: string) => {
+    return new Promise<{ status: number; ok: boolean; text: string }>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve({ status: 0, ok: false, text: '' })
+      }, 15_000)
+
+      function doRequest(reqUrl: string, redirectsLeft: number) {
+        if (redirectsLeft < 0) {
+          clearTimeout(timeout)
+          resolve({ status: 0, ok: false, text: 'Too many redirects' })
+          return
+        }
+        try {
+          const parsed = new URL(reqUrl)
+          const requester = parsed.protocol === 'http:' ? httpRequest : httpsRequest
+          const req = requester(reqUrl, (res) => {
+            // Follow redirects (301, 302, 307, 308)
+            if ([301, 302, 307, 308].includes(res.statusCode ?? 0) && res.headers.location) {
+              res.resume() // drain the response body
+              const next = new URL(res.headers.location, reqUrl).href
+              doRequest(next, redirectsLeft - 1)
+              return
+            }
+            const chunks: Buffer[] = []
+            res.on('data', (chunk: Buffer) => chunks.push(chunk))
+            res.on('end', () => {
+              clearTimeout(timeout)
+              const text = Buffer.concat(chunks).toString('utf-8')
+              const status = res.statusCode ?? 0
+              resolve({ status, ok: status >= 200 && status < 300, text })
+            })
+            res.on('error', () => {
+              clearTimeout(timeout)
+              resolve({ status: 0, ok: false, text: '' })
+            })
+          })
+          req.on('error', () => {
+            clearTimeout(timeout)
+            resolve({ status: 0, ok: false, text: '' })
+          })
+          req.end()
+        } catch {
+          clearTimeout(timeout)
+          resolve({ status: 0, ok: false, text: '' })
+        }
+      }
+
+      doRequest(url, 5)
+    })
   })
 }

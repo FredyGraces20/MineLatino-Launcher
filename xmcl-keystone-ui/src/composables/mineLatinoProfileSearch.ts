@@ -1,6 +1,7 @@
 import type { SearchResult, SearchResultHit } from '@xmcl/modrinth'
 import { computed, ref, Ref } from 'vue'
 import { getFacatsText } from './modrinth'
+import { clientModrinthV2 } from '@/util/clients'
 
 const PAGE_SIZE = 20
 
@@ -9,10 +10,8 @@ const PAGE_SIZE = 20
  * Used by the profile creation dialog to browse mods, resource packs and
  * shaders that are compatible with the profile being built.
  *
- * Uses window.netFetch (IPC → main process net.fetch) instead of renderer
- * fetch/XHR because the Electron session intercepts all HTTP(S) from the
- * renderer through a protocol handler chain (ElectronSession.ts) whose
- * ReadableStream response bodies may not properly terminate.
+ * Uses the same clientModrinthV2.searchProjects() as the main store search
+ * which is proven to work through the Electron protocol handler chain.
  */
 export function useMineLatinoProfileSearch(
   projectType: Ref<'mod' | 'resourcepacks' | 'shaders'>,
@@ -54,27 +53,13 @@ export function useMineLatinoProfileSearch(
         'client',
       )
 
-      const params = new URLSearchParams()
-      params.set('query', query.value || '')
-      params.set('limit', String(PAGE_SIZE))
-      params.set('offset', String(offset.value))
-      params.set('index', sortBy.value || (query.value ? 'relevance' : 'downloads'))
-      if (facetsText) {
-        params.set('facets', facetsText)
-      }
-
-      const url = `https://api.modrinth.com/v2/search?${params.toString()}`
-
-      // Use IPC-based fetch that bypasses the session protocol handler
-      const netFetch = (window as any).netFetch
-      if (!netFetch) {
-        throw new Error('netFetch not available')
-      }
-      const response = await netFetch(url)
-      if (!response.ok) {
-        throw new Error(`Modrinth search failed: ${response.status}`)
-      }
-      const result = JSON.parse(response.text) as SearchResult
+      const result = await clientModrinthV2.searchProjects({
+        query: query.value || '',
+        limit: PAGE_SIZE,
+        offset: offset.value,
+        index: sortBy.value || (query.value ? 'relevance' : 'downloads'),
+        facets: facetsText,
+      })
 
       if (reset) {
         results.value = result.hits
