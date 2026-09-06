@@ -17,7 +17,7 @@
     class="ml-screen flex flex-col gap-3 p-4"
   >
     <v-card
-      class="ml-panel flex flex-col"
+      class="ml-panel flex flex-col h-full"
     >
       <div class="ml-hero">
         <v-icon size="40" :color="accentColor || 'primary'" aria-hidden="true">
@@ -102,7 +102,7 @@
         </v-card-title>
       </v-card-item>
 
-      <v-card-text class="ml-scroll flex-grow overflow-y-auto pt-0">
+      <v-card-text class="ml-scroll flex-grow pt-0">
         <v-skeleton-loader v-if="catalogLoading" type="chip@8" />
 
         <div v-else-if="catalogError" class="ml-empty">
@@ -297,6 +297,8 @@ const productsError = computed(
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .ml-panel {
@@ -307,7 +309,7 @@ const productsError = computed(
 }
 
 .ml-scroll {
-  max-height: calc(100vh - 250px);
+  min-height: 0;
 }
 
 .ml-hero {
