@@ -1,0 +1,245 @@
+import { GenericEventEmitter } from '../events'
+import { ServiceKey } from './Service'
+
+/**
+ * Contract for the MineLatino home screen.
+ *
+ * Every value here is served by the MineLatino backend (`launcher-backend/`) so
+ * the server address, store URL, branding and enabled features can change
+ * without shipping a new installer. The shapes mirror
+ * `launcher-backend/src/types.ts`; keep the two in sync. Additive changes are
+ * safe, renames are not, because the launcher may be running against an older
+ * backend.
+ */
+
+export type MineLatinoLoader = 'vanilla' | 'fabric' | 'neoforge' | 'forge' | 'quilt'
+
+export type MineLatinoAuthMode = 'microsoft' | 'offline'
+
+export type MineLatinoUpdatesProvider = 'wordpress' | 'json' | 'none'
+
+export interface MineLatinoLink {
+  label: string
+  url: string
+  /** Material icon name rendered by the launcher. */
+  icon?: string
+}
+
+export interface MineLatinoBranding {
+  name: string
+  tagline: string
+  logoUrl?: string
+  backgroundUrl?: string
+  /** CSS colour used for accents, e.g. `#f5a623`. */
+  accentColor?: string
+}
+
+export interface MineLatinoServerConfig {
+  name: string
+  /** Empty when the backend has not been given a real address yet. */
+  host: string
+  port: number
+  /** Geyser/Bedrock port, used only to build the `minecraft://` deep link. */
+  bedrockPort?: number
+  /** 64x64 png as a data URI or URL, written into the instance `servers.dat`. */
+  icon?: string
+  /** When true the launcher passes `--quickPlayMultiplayer host:port`. */
+  autoJoin: boolean
+  /**
+   * Whether non-premium (offline) accounts are offered. Only meaningful when
+   * the server is `online-mode=false` or runs a hybrid auth plugin.
+   */
+  allowOffline: boolean
+  /** Modrinth project ids the server needs; the launcher warns before Play. */
+  requiredMods?: string[]
+}
+
+export interface MineLatinoPresetMod {
+  /** Modrinth project id or slug, e.g. `sodium`. */
+  projectId: string
+  /** Pin a version; omit to take the newest one compatible with the loader. */
+  version?: string
+}
+
+export interface MineLatinoPreset {
+  /** Stable key reused as the instance name so it is created only once. */
+  id: string
+  name: string
+  description?: string
+  minecraftVersion: string
+  loader: MineLatinoLoader
+  /** Omit to let the launcher pick the newest loader for the MC version. */
+  loaderVersion?: string
+  mods: MineLatinoPresetMod[]
+  /** Material icon name shown on the preset card. */
+  icon?: string
+  /** The preset the Play button offers when the player has no profile yet. */
+  recommended?: boolean
+}
+
+export interface MineLatinoStoreConfig {
+  url: string
+  /** Stores that reject embedded webviews can be forced into the system browser. */
+  openInExternalBrowser: boolean
+  /** Extra windows shown next to the store button (vote, wiki, map...). */
+  tabs: MineLatinoLink[]
+}
+
+export interface MineLatinoConfig {
+  schemaVersion: number
+  branding: MineLatinoBranding
+  server: MineLatinoServerConfig
+  store: MineLatinoStoreConfig
+  news: {
+    enabled: boolean
+    limit: number
+    /** Discord invite link shown next to the news feed. */
+    inviteUrl?: string
+  }
+  updates: {
+    enabled: boolean
+    limit: number
+    provider: MineLatinoUpdatesProvider
+    /** Optional human label, e.g. the name of the website section. */
+    sourceLabel?: string
+    /**
+     * Send "Leer más" to the system browser instead of an in-launcher window.
+     * Useful when the website rejects embedded webviews.
+     */
+    openInExternalBrowser?: boolean
+  }
+  auth: {
+    modes: MineLatinoAuthMode[]
+  }
+  /** Ready-made instances offered as "Crear perfil MineLatino". */
+  presets: MineLatinoPreset[]
+  links: MineLatinoLink[]
+  maintenance: {
+    enabled: boolean
+    message: string
+  }
+  /** Launcher versions below this are told to update before playing. */
+  minLauncherVersion: string
+}
+
+export interface MineLatinoNewsEmbedField {
+  name: string
+  value: string
+  inline?: boolean
+}
+
+export interface MineLatinoNewsEmbed {
+  title?: string
+  description?: string
+  url?: string
+  /** Discord embed colour as a 24-bit integer. */
+  color?: number
+  image?: string
+  thumbnail?: string
+  fields: MineLatinoNewsEmbedField[]
+}
+
+export interface MineLatinoNewsItem {
+  id: string
+  author: string
+  authorAvatar: string
+  /** ISO-8601 timestamp. */
+  timestamp: string
+  content: string
+  /** Direct URLs of image attachments. */
+  images: string[]
+  embeds: MineLatinoNewsEmbed[]
+  /** `https://discord.com/channels/<guild>/<channel>/<message>` */
+  url: string
+  /** True when the message was published from an announcement channel. */
+  isAnnouncement: boolean
+}
+
+export interface MineLatinoNewsResult {
+  items: MineLatinoNewsItem[]
+  /** Epoch ms of the moment the data was fetched from Discord. */
+  fetchedAt: number
+  /**
+   * True when the backend or Discord failed and this is the last known copy.
+   * The home screen renders a "sin conexión" badge instead of an error.
+   */
+  stale: boolean
+  source: 'discord'
+  error?: string
+}
+
+export interface MineLatinoUpdateItem {
+  id: string
+  title: string
+  /** ISO-8601 timestamp. */
+  date: string
+  link: string
+  excerpt: string
+  image?: string
+}
+
+export interface MineLatinoUpdatesResult {
+  items: MineLatinoUpdateItem[]
+  fetchedAt: number
+  stale: boolean
+  provider: MineLatinoUpdatesProvider
+  error?: string
+}
+
+export interface MineLatinoWebWindowOptions {
+  /** Reused when the window is already open, so a second click focuses it. */
+  id: string
+  title?: string
+  url: string
+  /** Force the system browser for stores that refuse embedded webviews. */
+  externalBrowser?: boolean
+}
+
+export interface MineLatinoWebWindowInfo {
+  id: string
+  title: string
+  url: string
+}
+
+/**
+ * Fired when a background refresh produces new data, so the home screen updates
+ * without a manual reload.
+ */
+export interface MineLatinoServiceEventMap {
+  'config': MineLatinoConfig
+  'news': MineLatinoNewsResult
+  'updates': MineLatinoUpdatesResult
+  'webWindows': MineLatinoWebWindowInfo[]
+}
+
+export interface MineLatinoService extends GenericEventEmitter<MineLatinoServiceEventMap> {
+  /**
+   * The launcher configuration. Returns the copy cached on disk when the
+   * backend is unreachable, and the bundled default when there is no cache
+   * either, so the home screen always has something to render.
+   */
+  getConfig(force?: boolean): Promise<MineLatinoConfig>
+
+  /** Latest Discord announcements. Never rejects: falls back to the cache. */
+  getNews(force?: boolean): Promise<MineLatinoNewsResult>
+
+  /** Latest website publications. Never rejects: falls back to the cache. */
+  getUpdates(force?: boolean): Promise<MineLatinoUpdatesResult>
+
+  /** The backend this launcher talks to, shown in diagnostics. */
+  getBackendUrl(): Promise<string>
+
+  /**
+   * Opens the store (or any configured tab) in its own window. A real
+   * `BrowserWindow` is used rather than an iframe because stores send
+   * `X-Frame-Options` and would render blank; it also lets payments and
+   * 3-D Secure redirects work.
+   */
+  openWebWindow(options: MineLatinoWebWindowOptions): Promise<void>
+
+  closeWebWindow(id: string): Promise<void>
+
+  getWebWindows(): Promise<MineLatinoWebWindowInfo[]>
+}
+
+export const MineLatinoServiceKey: ServiceKey<MineLatinoService> = 'MineLatinoService'
