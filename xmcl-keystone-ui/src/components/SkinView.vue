@@ -92,9 +92,9 @@ onMounted(() => {
     zoom: props.zoom,
   })
 
-  // Shift the model down slightly so the nametag above the head
-  // is not clipped at the top of the canvas at high zoom levels.
-  viewer.playerObject.position.y = -0.18
+  // Shift the model down so the nametag above the head
+  // fits fully within the canvas at high zoom levels.
+  viewer.playerObject.position.y = -0.35
 
   viewer.animation = animationObject.value
   viewer.renderPaused = props.paused ?? false
