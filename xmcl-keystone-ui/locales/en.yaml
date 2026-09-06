@@ -41,13 +41,10 @@ MineLatinoAuth:
 MineLatinoHome:
   announcement: Announcement
   attachment: Attachment
-  autoJoin: Auto-join
-  autoJoinHint: Pressing Play connects you straight to the server.
-  bedrock: Bedrock
   close: Close
   closeStore: Close store
-  copied: Copied
   discord: Discord
+  featuredEmpty: No featured products yet.
   joinDiscord: Join our Discord
   maintenanceTitle: The server is under maintenance
   mentionChannel: channel
@@ -56,40 +53,32 @@ MineLatinoHome:
   news: News
   newsEmpty: No announcements yet. Check back soon!
   newsError: The announcements could not be loaded.
+  next: Next
   offline: Offline
   offlineHint: Showing the last copy that could be downloaded.
   openDiscord: Open Discord
   openInDiscord: Open in Discord
   openLink: Open
+  prev: Previous
   refresh: Refresh
-  serverAddressHint: Click to copy the server address
   store: Store
   updates: Updates
   updatesEmpty: No publications yet.
   updatesError: The publications could not be loaded.
+  viewAll: View all
 MineLatinoNav:
   actualizaciones: Updates
-  actualizacionesHint: Changelogs and news from the server.
   actualizar: Update
-  actualizarHint: Get the latest launcher version without downloading it again.
   anuncios: Announcements
-  anunciosHint: What is happening in the community right now.
   jugar: Play
-  jugarHint: Pick a profile and join the server.
   tienda: Store
-  tiendaHint: Ranks, cosmetics and more.
 MineLatinoPlay:
-  account: Account
   addVersion: Add version
-  back: Back
-  chooseProfile: Choose your profile
-  entrar: Enter the server
+  empezar: Start
   login: Sign in
-  mods: Mods
   noProfile: No profile yet. Create one below to start playing.
-  resourcePacks: Resource Packs
-  settings: Settings
-  shaderPacks: Shader Packs
+  players: '{online}/{max} players'
+  playersOffline: Server unreachable
   startTitle: MineLatino
 MineLatinoPreset:
   create: Create profile
@@ -108,6 +97,19 @@ MineLatinoRequiredMods:
   openInStore: Search on Modrinth
   playAnyway: Play anyway
   title: Missing required mods
+MineLatinoShell:
+  accountHint: Minecraft account
+  editProfile: Edit profile
+  logout: Sign out
+  logoutText: Your account will be removed from this launcher. You can sign back in anytime.
+  logoutTitle: Sign out?
+  mostPlayed: Most played
+  mostPlayedEmpty: You have not played any profile yet.
+  noSelectedProfile: No profile selected
+  options: Settings
+  playingAs: Playing as
+  profileSettings: Profile settings
+  profileVersion: Version
 MineLatinoStore:
   catalogEmpty: No categories available yet.
   catalogError: The store catalog could not be loaded.

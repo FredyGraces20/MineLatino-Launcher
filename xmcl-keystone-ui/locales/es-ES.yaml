@@ -42,13 +42,10 @@ MineLatinoAuth:
 MineLatinoHome:
   announcement: Anuncio
   attachment: Archivo adjunto
-  autoJoin: Entrada directa
-  autoJoinHint: Al pulsar Jugar te conectas directamente al servidor.
-  bedrock: Bedrock
   close: Cerrar
   closeStore: Cerrar tienda
-  copied: Copiado
   discord: Discord
+  featuredEmpty: Aún no hay productos destacados.
   joinDiscord: Únete a nuestro Discord
   maintenanceTitle: El servidor está en mantenimiento
   mentionChannel: canal
@@ -57,40 +54,32 @@ MineLatinoHome:
   news: Noticias
   newsEmpty: Todavía no hay anuncios. ¡Vuelve pronto!
   newsError: No se pudieron cargar los anuncios.
+  next: Siguiente
   offline: Sin conexión
   offlineHint: Mostrando la última copia descargada.
   openDiscord: Abrir Discord
   openInDiscord: Abrir en Discord
   openLink: Abrir
+  prev: Anterior
   refresh: Actualizar
-  serverAddressHint: Haz clic para copiar la dirección del servidor
   store: Tienda
   updates: Actualizaciones
   updatesEmpty: Todavía no hay publicaciones.
   updatesError: No se pudieron cargar las publicaciones.
+  viewAll: Ver todo
 MineLatinoNav:
   actualizaciones: Actualizaciones
-  actualizacionesHint: Cambios y novedades del servidor.
   actualizar: Actualizar
-  actualizarHint: Descarga la última versión del launcher sin bajarlo de nuevo.
   anuncios: Anuncios
-  anunciosHint: Lo que está pasando en la comunidad.
   jugar: Jugar
-  jugarHint: Elige tu perfil y entra al servidor.
   tienda: Tienda
-  tiendaHint: Rangos, cosméticos y más.
 MineLatinoPlay:
-  account: Cuenta
   addVersion: Añadir versión
-  back: Atrás
-  chooseProfile: Elige tu perfil
-  entrar: Entrar al servidor
+  empezar: Empezar
   login: Iniciar sesión
-  mods: Mods
   noProfile: Todavía no tienes ningún perfil. Crea uno abajo para empezar a jugar.
-  resourcePacks: Paquetes de recursos
-  settings: Ajustes
-  shaderPacks: Paquetes de shaders
+  players: '{online}/{max} jugadores'
+  playersOffline: Servidor sin conexión
   startTitle: MineLatino
 MineLatinoPreset:
   create: Crear perfil
@@ -109,6 +98,19 @@ MineLatinoRequiredMods:
   openInStore: Buscar en Modrinth
   playAnyway: Jugar de todos modos
   title: Faltan mods requeridos
+MineLatinoShell:
+  accountHint: Cuenta de Minecraft
+  editProfile: Editar perfil
+  logout: Cerrar sesión
+  logoutText: Tu cuenta se quitará de este launcher. Podrás volver a iniciar sesión cuando quieras.
+  logoutTitle: ¿Cerrar sesión?
+  mostPlayed: Más jugados
+  mostPlayedEmpty: Aún no has jugado ningún perfil.
+  noSelectedProfile: Ningún perfil seleccionado
+  options: Opciones
+  playingAs: Jugando como
+  profileSettings: Ajustes del perfil
+  profileVersion: Versión
 MineLatinoStore:
   catalogEmpty: Todavía no hay categorías disponibles.
   catalogError: No se pudo cargar el catálogo de la tienda.

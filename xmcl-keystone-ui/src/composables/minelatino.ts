@@ -379,11 +379,42 @@ export function useMineLatino() {
   })
 
   /**
+   * Three random shop products for the home carousel's third page.
+   *
+   * Kept in its own ref on purpose: rolling it through `selectedStoreCategory`
+   * would yank the Tienda screen's selection to a category the player never
+   * picked. The roll samples up to three random categories (the main process
+   * caches each one) and then shuffles their products, so the page shows a
+   * varied slice of the shop instead of always the first category's items.
+   */
+  const featuredProducts = shallowRef<MineLatinoStoreProduct[]>([])
+  async function refreshFeatured() {
+    const categories = storeCatalog.value.categories
+    if (categories.length === 0) {
+      featuredProducts.value = []
+      return
+    }
+    const sample = [...categories].sort(() => Math.random() - 0.5).slice(0, 3)
+    const results = await Promise.all(sample.map(c => service.getStoreProducts(c.id).catch(() => undefined)))
+    featuredProducts.value = results
+      .flatMap(r => r?.items ?? [])
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+  }
+
+  /**
    * Whether the backend handed over anything worth a dedicated home section.
    * Delegates to `isMineLatinoConfigured` so the hub's own visibility and the
    * first-run routing in `Context.ts` stay in lockstep.
    */
   const isConfigured = computed(() => isMineLatinoConfigured(config.value))
+
+  // Roll the carousel's products once the catalog first lands (disk cache or
+  // network). Watching the length keeps a later background refresh from
+  // reshuffling the page under the player's eyes.
+  watch(() => storeCatalog.value.categories.length, (len) => {
+    if (len > 0 && featuredProducts.value.length === 0) void refreshFeatured()
+  }, { immediate: true })
 
   /**
    * The window title follows the backend's brand name.
@@ -544,6 +575,7 @@ export function useMineLatino() {
     storeCategories,
     selectedStoreProducts,
     selectedStoreProductsResult,
+    featuredProducts,
     isConfigured,
     // actions
     mutate,

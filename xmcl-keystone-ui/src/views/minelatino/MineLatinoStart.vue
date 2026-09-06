@@ -1,8 +1,9 @@
 <!--
-  MineLatino start screen: the branded hero plus the big tiles that are the
-  whole navigation of the launcher (Jugar / Tienda / Anuncios / Actualizaciones,
-  and a full-width Actualizar self-update tile). There is no persistent rail —
-  each tile opens its own full screen and the shell header carries the way back.
+  MineLatino home: a carousel that rotates through the three things the
+  community publishes — the latest 3 announcements, the latest 3 server
+  updates and 3 random products from the shop — changing page every few
+  seconds (paused while the pointer is over it), with dots and arrows for
+  manual navigation.
 
   Injects `kMineLatino` from `MineLatinoShell.vue` (never re-subscribes), and
   renders nothing when the backend sent no MineLatino config, so an unbranded
@@ -12,289 +13,458 @@
   <section
     v-if="isConfigured"
     data-testid="minelatino-start"
-    class="ml-start flex flex-col gap-4 p-4"
+    class="ml-home flex h-full min-h-0 flex-col p-4"
   >
-    <!-- Hero: backend art (when supplied) behind the logo, name and tagline. -->
-    <v-card
-      class="ml-hero"
-      :color="cardColor"
-      :style="heroStyle"
-      elevation="0"
+    <div
+      class="ml-carousel relative flex min-h-0 flex-1 flex-col"
+      @mouseenter="paused = true"
+      @mouseleave="paused = false"
     >
-      <div class="ml-hero-body">
-        <v-avatar size="72" rounded="lg" class="ml-hero-logo">
-          <img
-            :src="logoSrc"
-            :alt="brandName"
-            draggable="false"
-            v-fallback-img="BuiltinImages.minecraft"
-          >
-        </v-avatar>
-        <h1 class="ml-hero-title">
-          {{ brandName }}
-        </h1>
-        <div v-if="branding?.tagline" class="ml-hero-tagline">
-          {{ branding.tagline }}
-        </div>
-      </div>
-    </v-card>
+      <transition name="ml-slide" mode="out-in">
+        <div :key="page" class="flex min-h-0 flex-1 flex-col gap-3">
+          <!-- Page header: what this slide is about plus where to see all. -->
+          <div class="flex flex-grow-0 flex-shrink-0 items-center gap-2">
+            <v-icon :color="accentColor || 'primary'" aria-hidden="true">
+              {{ current.icon }}
+            </v-icon>
+            <span class="ml-carousel-title">{{ current.title }}</span>
+            <div class="flex-grow" />
+            <v-btn size="small" variant="text" :color="accentColor || 'primary'" @click="router.push(current.to)">
+              {{ t('MineLatinoHome.viewAll') }}
+              <v-icon end size="small" aria-hidden="true"> arrow_forward </v-icon>
+            </v-btn>
+          </div>
 
-    <!-- The four content destinations; the self-update tile is appended below. -->
-    <div class="ml-tiles">
-      <div
-        v-for="tile in tiles"
-        :key="tile.key"
-        class="ml-tile"
-        role="button"
-        tabindex="0"
-        :data-testid="`minelatino-tile-${tile.key}`"
-        :aria-label="t(`MineLatinoNav.${tile.key}`)"
-        @click="go(tile.to)"
-        @keydown.enter="go(tile.to)"
-        @keydown.space.prevent="go(tile.to)"
-      >
-        <v-icon class="ml-tile-icon" size="40" aria-hidden="true">
-          {{ tile.icon }}
-        </v-icon>
-        <div class="ml-tile-title">
-          {{ t(`MineLatinoNav.${tile.key}`) }}
-        </div>
-        <div class="ml-tile-hint">
-          {{ t(`MineLatinoNav.${tile.key}Hint`) }}
-        </div>
-      </div>
+          <!-- Three cards per page, whatever the feed holds. -->
+          <div class="ml-carousel-grid min-h-0 flex-1">
+            <template v-if="page === 0">
+              <template v-if="latestNews.length > 0">
+                <article
+                  v-for="item in latestNews"
+                  :key="item.id"
+                  class="ml-card"
+                  role="button"
+                  tabindex="0"
+                  @click="openInBrowser(item.url)"
+                  @keydown.enter="openInBrowser(item.url)"
+                >
+                  <img
+                    v-if="item.images[0] || item.embeds[0]?.image"
+                    class="ml-card-media"
+                    :src="item.images[0] || item.embeds[0]?.image"
+                    loading="lazy"
+                    draggable="false"
+                    :alt="item.author"
+                  >
+                  <div class="ml-card-body">
+                    <div class="flex items-center gap-2">
+                      <v-avatar size="26" color="#5865F2">
+                        <img v-if="item.authorAvatar" :src="item.authorAvatar" :alt="item.author" draggable="false">
+                        <span v-else>{{ item.author.charAt(0).toUpperCase() }}</span>
+                      </v-avatar>
+                      <span class="ml-card-title">{{ item.author }}</span>
+                      <span class="ml-card-time" :title="absoluteTime(item.timestamp)">{{ relativeTime(item.timestamp) }}</span>
+                    </div>
+                    <div class="ml-card-text ml-clamp">
+                      {{ plain(item.content) || item.embeds[0]?.title || '' }}
+                    </div>
+                  </div>
+                </article>
+              </template>
+              <div v-else class="ml-carousel-empty">
+                <v-icon size="36" color="grey"> forum </v-icon>
+                <div class="mt-2 text-body-2 text-grey">
+                  {{ news.error ? t('MineLatinoHome.newsError') : t('MineLatinoHome.newsEmpty') }}
+                </div>
+              </div>
+            </template>
 
-      <!-- Fifth destination: the launcher's own self-update. Full width so it
-           reads as an action distinct from the content sections above, and it
-           grows a badge dot the moment the backend advertises a new version. -->
-      <div
-        class="ml-tile ml-tile-update"
-        role="button"
-        tabindex="0"
-        data-testid="minelatino-tile-actualizar"
-        :aria-label="t('MineLatinoNav.actualizar')"
-        @click="go('/minelatino/actualizar')"
-        @keydown.enter="go('/minelatino/actualizar')"
-        @keydown.space.prevent="go('/minelatino/actualizar')"
+            <template v-else-if="page === 1">
+              <template v-if="latestUpdates.length > 0">
+                <article
+                  v-for="item in latestUpdates"
+                  :key="item.id"
+                  class="ml-card"
+                  role="button"
+                  tabindex="0"
+                  @click="openUpdate(item)"
+                  @keydown.enter="openUpdate(item)"
+                >
+                  <img
+                    v-if="item.image"
+                    class="ml-card-media"
+                    :src="item.image"
+                    loading="lazy"
+                    draggable="false"
+                    :alt="item.title"
+                  >
+                  <div class="ml-card-body">
+                    <div class="ml-card-title ml-clamp-1">
+                      {{ item.title }}
+                    </div>
+                    <div class="ml-card-time">{{ relativeTime(item.date) }}</div>
+                    <div class="ml-card-text ml-clamp">
+                      {{ item.excerpt }}
+                    </div>
+                  </div>
+                </article>
+              </template>
+              <div v-else class="ml-carousel-empty">
+                <v-icon size="36" color="grey"> new_releases </v-icon>
+                <div class="mt-2 text-body-2 text-grey">
+                  {{ updates.error ? t('MineLatinoHome.updatesError') : t('MineLatinoHome.updatesEmpty') }}
+                </div>
+              </div>
+            </template>
+
+            <template v-else>
+              <template v-if="featuredProducts.length > 0">
+                <article
+                  v-for="product in featuredProducts"
+                  :key="product.id"
+                  class="ml-card"
+                  role="button"
+                  tabindex="0"
+                  @click="openProduct(product)"
+                  @keydown.enter="openProduct(product)"
+                >
+                  <img
+                    v-if="product.image"
+                    class="ml-card-media"
+                    :src="product.image"
+                    loading="lazy"
+                    draggable="false"
+                    :alt="product.name"
+                  >
+                  <div class="ml-card-body">
+                    <div class="ml-card-title ml-clamp-1">
+                      {{ product.name }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="ml-card-price">{{ product.priceText }}</span>
+                      <span v-if="product.onSale && product.regularPriceText" class="ml-card-price-old">
+                        {{ product.regularPriceText }}
+                      </span>
+                      <v-chip v-if="product.onSale" size="x-small" color="error" variant="tonal">
+                        {{ t('MineLatinoStore.sale') }}
+                      </v-chip>
+                    </div>
+                    <div class="ml-card-text ml-clamp">
+                      {{ product.shortDescription }}
+                    </div>
+                  </div>
+                </article>
+              </template>
+              <div v-else class="ml-carousel-empty">
+                <v-icon size="36" color="grey"> storefront </v-icon>
+                <div class="mt-2 text-body-2 text-grey">
+                  {{ t('MineLatinoHome.featuredEmpty') }}
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Manual navigation: arrows on the edges, dots under the grid. -->
+      <button
+        type="button"
+        class="ml-arrow ml-arrow--left"
+        :aria-label="t('MineLatinoHome.prev')"
+        @click="goPage(page - 1)"
       >
-        <v-icon class="ml-tile-icon" size="40" aria-hidden="true">
-          system_update
-        </v-icon>
-        <div class="ml-tile-title">
-          {{ t('MineLatinoNav.actualizar') }}
-          <span v-if="updateAvailable" class="ml-tile-badge" aria-hidden="true" />
-        </div>
-        <div class="ml-tile-hint">
-          {{ updateHint }}
-        </div>
+        <v-icon aria-hidden="true"> chevron_left </v-icon>
+      </button>
+      <button
+        type="button"
+        class="ml-arrow ml-arrow--right"
+        :aria-label="t('MineLatinoHome.next')"
+        @click="goPage(page + 1)"
+      >
+        <v-icon aria-hidden="true"> chevron_right </v-icon>
+      </button>
+
+      <div class="ml-dots flex flex-grow-0 flex-shrink-0 items-center justify-center gap-2 pt-3">
+        <button
+          v-for="(meta, index) in pages"
+          :key="meta.key"
+          type="button"
+          class="ml-dot"
+          :class="{ 'ml-dot--on': index === page }"
+          :aria-label="meta.title"
+          :aria-current="index === page"
+          @click="goPage(index)"
+        />
       </div>
     </div>
   </section>
 </template>
 <script lang="ts" setup>
-import bundledLogo from '@/assets/minelatino-logo.png'
-import { kMineLatino } from '@/composables/minelatino'
-import { useUpdateSettings } from '@/composables/setting'
-import { kTheme } from '@/composables/theme'
-import { BuiltinImages } from '@/constant'
-import { vFallbackImg } from '@/directives/fallbackImage'
+import { kMineLatino, useRelativeTime } from '@/composables/minelatino'
 import { injection } from '@/util/inject'
 
 const { t } = useI18n()
 const router = useRouter()
-const { cardColor, blurCard } = injection(kTheme)
-const { branding, accentColor, isConfigured } = injection(kMineLatino)
+const {
+  news,
+  updates,
+  featuredProducts,
+  accentColor,
+  isConfigured,
+  openInBrowser,
+  openUpdate,
+  openProduct,
+} = injection(kMineLatino)
+const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 
-const brandName = computed(() => branding.value?.name || t('MineLatinoPlay.startTitle'))
-const logoSrc = computed(() => branding.value?.logoUrl || bundledLogo)
+const latestNews = computed(() => news.value.items.slice(0, 3))
+const latestUpdates = computed(() => updates.value.items.slice(0, 3))
 
-const tiles = [
-  { key: 'jugar', icon: 'play_arrow', to: '/minelatino/jugar' },
-  { key: 'tienda', icon: 'storefront', to: '/minelatino/tienda' },
-  { key: 'anuncios', icon: 'campaign', to: '/minelatino/anuncios' },
-  { key: 'actualizaciones', icon: 'new_releases', to: '/minelatino/actualizaciones' },
-]
+const pages = computed(() => [
+  { key: 'news', icon: 'campaign', title: t('MineLatinoHome.news'), to: '/minelatino/anuncios' },
+  { key: 'updates', icon: 'new_releases', title: t('MineLatinoHome.updates'), to: '/minelatino/actualizaciones' },
+  { key: 'store', icon: 'storefront', title: t('MineLatinoHome.store'), to: '/minelatino/tienda' },
+])
+const current = computed(() => pages.value[page.value])
 
-function go(to: string) {
-  router.push(to)
+/**
+ * The carousel turns pages on its own every few seconds; hovering the slide
+ * freezes it so nobody loses the card they were reading mid-sentence.
+ */
+const PAGE_COUNT = 3
+const ROTATE_MS = 3500
+const page = ref(0)
+const paused = ref(false)
+let timer: ReturnType<typeof setInterval> | undefined
+
+function arm() {
+  if (timer) clearInterval(timer)
+  timer = setInterval(() => {
+    if (!paused.value) page.value = (page.value + 1) % PAGE_COUNT
+  }, ROTATE_MS)
 }
 
-// The self-update tile is rendered on its own so it can show a live status
-// instead of a static hint. `useUpdateSettings()` reads the same shared
-// `kSettingsState` the updater writes to, so the badge reflects the startup
-// check without this screen re-fetching anything.
-const { updateStatus, updateInfo } = useUpdateSettings()
-const updateAvailable = computed(() => updateStatus.value !== 'none' && !!updateInfo.value?.newUpdate)
-const updateHint = computed(() => {
-  if (!updateAvailable.value) return t('MineLatinoNav.actualizarHint')
-  const name = updateInfo.value?.name
-  return name ? `${t('MineLatinoUpdate.available')} · ${name}` : t('MineLatinoUpdate.available')
+function goPage(index: number) {
+  page.value = (index + PAGE_COUNT) % PAGE_COUNT
+  // Restart the countdown so a manual pick gets its full reading time.
+  arm()
+}
+
+onMounted(arm)
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 
 /**
- * Hero art, when the backend supplies one.
- *
- * Only `http(s)` and `data:image/` URLs survive, and anything containing a
- * quote, parenthesis, backslash or whitespace is dropped, because the value is
- * interpolated into a `url("...")` wrapper and must not be able to break out.
+ * Discord markup stripped down to readable text for the card preview. The
+ * full message (embeds, images, mentions) lives in the Anuncios screen; here
+ * a clean plain-text teaser is what fits.
  */
-const heroBackground = computed(() => {
-  const url = branding.value?.backgroundUrl
-  if (!url) return ''
-  if (!/^(?:https?:\/\/|data:image\/)/i.test(url)) return ''
-  return /["'()\s\\]/.test(url) ? '' : url
-})
-
-/**
- * The scrim is built from the theme's own surface colour instead of a fixed
- * black overlay, so the title and tagline keep their contrast in both light and
- * dark themes whatever art the backend sends.
- */
-const heroStyle = computed(() => {
-  const style: Record<string, string> = { 'backdrop-filter': `blur(${blurCard}px)` }
-  if (heroBackground.value) {
-    const scrim = 'linear-gradient('
-      + 'color-mix(in srgb, rgb(var(--v-theme-surface)) 68%, transparent),'
-      + 'color-mix(in srgb, rgb(var(--v-theme-surface)) 86%, transparent))'
-    style['background-image'] = `${scrim}, url("${heroBackground.value}")`
-    style['background-size'] = 'cover'
-    style['background-position'] = 'center'
-  }
-  return style
-})
+function plain(source: string) {
+  return source
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/<[@#!][^>]*>/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_~`#>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 </script>
 
 <style scoped>
-.ml-start {
+.ml-home {
   width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
 }
 
-.ml-hero {
-  border-radius: 14px;
-  overflow: hidden;
-  position: relative;
+.ml-carousel-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
-/* Accent strip along the top of the hero. */
-.ml-hero::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--ml-accent) 0%, transparent 85%);
-  pointer-events: none;
+.ml-carousel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.ml-hero-body {
+.ml-carousel-empty {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 40px 24px;
+  padding: 40px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(var(--v-theme-on-surface), 0.2);
   text-align: center;
 }
 
-.ml-hero-logo {
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 35%, transparent);
-}
-
-.ml-hero-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.ml-hero-title {
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: 0.01em;
-}
-
-.ml-hero-tagline {
-  font-size: 0.95rem;
-  color: var(--color-secondary-text);
-  max-width: 40ch;
-}
-
-.ml-tiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.ml-tile {
+.ml-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-height: 148px;
-  padding: 22px;
+  min-height: 240px;
   border-radius: 14px;
+  overflow: hidden;
   cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 8%, rgba(var(--v-theme-surface), 0.6));
-  transition: transform 0.15s ease, border-color 0.2s ease, background-color 0.2s ease;
+  border: 1px solid color-mix(in srgb, var(--ml-accent) 20%, transparent);
+  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.ml-tile:hover {
-  transform: translateY(-2px);
+.ml-card:hover {
+  transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--ml-accent) 55%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 16%, rgba(var(--v-theme-surface), 0.6));
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ml-accent) 45%, transparent);
 }
 
-.ml-tile:focus-visible {
+.ml-card:focus-visible {
   outline: 2px solid var(--ml-accent);
   outline-offset: 2px;
 }
 
-.ml-tile-icon {
+.ml-card-media {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  flex-grow: 0;
+  flex-shrink: 0;
+  background-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.ml-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+}
+
+.ml-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ml-card-time {
+  font-size: 0.74rem;
+  color: var(--color-secondary-text);
+  margin-left: auto;
+}
+
+.ml-card-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-secondary-text);
+  overflow-wrap: anywhere;
+}
+
+.ml-card-price {
+  font-size: 0.95rem;
+  font-weight: 800;
   color: var(--ml-accent);
 }
 
-.ml-tile-title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.ml-tile-hint {
-  font-size: 0.85rem;
+.ml-card-price-old {
+  font-size: 0.8rem;
   color: var(--color-secondary-text);
-  line-height: 1.35;
+  text-decoration: line-through;
 }
 
-/* The self-update tile spans both columns so it reads as a distinct action. */
-.ml-tile-update {
-  grid-column: 1 / -1;
+/* Two-line / one-line clamps for the teaser text. */
+.ml-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Live "new version available" dot next to the update tile title. */
-.ml-tile-badge {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-left: 8px;
+.ml-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ml-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
-  vertical-align: middle;
-  background-color: var(--ml-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ml-accent) 25%, transparent);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 82%, transparent);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+  z-index: 3;
 }
 
-/* Narrow windows stack the tiles into a single column. */
-@media (max-width: 700px) {
-  .ml-tiles {
+.ml-carousel:hover .ml-arrow,
+.ml-arrow:focus-visible {
+  opacity: 1;
+}
+
+.ml-arrow:hover {
+  background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
+}
+
+.ml-arrow--left {
+  left: -6px;
+}
+
+.ml-arrow--right {
+  right: -6px;
+}
+
+.ml-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: rgba(var(--v-theme-on-surface), 0.28);
+  cursor: pointer;
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+.ml-dot--on {
+  width: 22px;
+  background-color: var(--ml-accent);
+}
+
+.ml-dot:focus-visible {
+  outline: 2px solid var(--ml-accent);
+  outline-offset: 2px;
+}
+
+/* Slide change: the outgoing page drifts left while the new one arrives. */
+.ml-slide-enter-active,
+.ml-slide-leave-active {
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+
+.ml-slide-enter-from {
+  opacity: 0;
+  transform: translateX(28px);
+}
+
+.ml-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-28px);
+}
+
+/* Narrow windows stack the three cards. */
+@media (max-width: 900px) {
+  .ml-carousel-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .ml-tile {
-    min-height: 112px;
+  .ml-card {
+    min-height: 120px;
   }
 }
 </style>
