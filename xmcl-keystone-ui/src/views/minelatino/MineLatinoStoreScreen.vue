@@ -102,7 +102,7 @@
         </v-card-title>
       </v-card-item>
 
-      <v-card-text class="ml-scroll flex-grow pt-0">
+      <v-card-text class="ml-scroll flex-grow overflow-y-auto pt-0">
         <v-skeleton-loader v-if="catalogLoading" type="chip@8" />
 
         <div v-else-if="catalogError" class="ml-empty">
