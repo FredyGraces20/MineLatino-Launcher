@@ -338,6 +338,30 @@ per-user), `minelatino-0.68.1-win32-x64.zip` (129 MB), `app-0.68.1-win.asar`
 (29 MB) + `.gz` + `.sha256`, `manifest.json` (`{version, electron}`), and
 `win-unpacked/MineLatino.exe`. No `app-update.yml` inside `win-unpacked/resources`.
 
+**Build gotcha on this machine — `NODE_PATH` is required.** `build.ts` (line 56)
+and `plugins/esbuild.native.plugin.ts` (line 56, only when `NODE_ENV=production`)
+`require.resolve` `@azure/msal-node-runtime` and `@azure/msal-node-extensions`.
+Neither is declared by `xmcl-electron-app` — only `xmcl-runtime` declares them —
+and `.npmrc` does not public-hoist `@azure`, so pnpm leaves them in the hidden
+`node_modules/.pnpm/node_modules` store where a bare `require.resolve` from the
+electron-app cannot see them. The build therefore fails with
+`Cannot find module '@azure/msal-node-extensions/package.json'` unless the process
+runs with `NODE_PATH=<repo>/node_modules/.pnpm/node_modules`. Set that env var (no
+package.json change, no `pnpm install` needed) before `tsx build.ts`; the renderer
+must already be built (`xmcl-keystone-ui`: `vite build`) since `buildMain` copies
+its `dist/`.
+
+**Publishing a release (done once for v0.68.1).** After the build, the seven
+artifacts are uploaded with `gh release create v<version> <files…> --repo
+FredyGraces20/MineLatino-Launcher --target main` (the repo has two remotes —
+`origin` and upstream — so `--repo`/`gh repo set-default` is required). Then the
+backend manifest is pointed at it on Railway: `RELEASE_TAG_NAME=v<version>` and
+`RELEASE_ASSETS_BASE_URL=…/releases/download/v<version>` — note the base URL must
+already contain the tag, because `release.ts` builds `browser_download_url` as
+`${base}/${name}` and never inserts the tag itself. Verified live: `/api/release?
+version=0.68.0` offers v0.68.1 with five correct GitHub asset URLs, and
+`?version=0.68.1` returns zero assets ("up to date"), so no downgrade loop.
+
 **Still upstream-branded, deliberately left.** These call upstream cloud services
 and would need product decisions, not code, to repoint: `launcherNews.ts`
 (`api.xmcl.app/news`, surfaced in `Me.vue`), `flights.ts`, `XmclAccountApi`,
@@ -614,15 +638,18 @@ Until then the launcher runs on `FALLBACK_CONFIG` and deliberately looks inert.
 - **Microsoft login smoke test.** The plan's Phase 0 gate — confirming XMCL's
   bundled client ID still authenticates — has not been run, because it needs a
   running launcher and a real account. It is the one risk the fork does not control.
-- **GitHub repo for releases.** Supplied: both repos exist under `FredyGraces20` —
+- **GitHub repo for releases.** Done: both repos exist under `FredyGraces20` —
   `MineLatino-Launcher` (public, so GitHub Releases downloads work without auth)
   and `MineLatino-Backend` (private). `ML_GITHUB_OWNER`/`ML_GITHUB_REPO` now default
-  to them in `build/electron-builder.config.ts`, and `RELEASE_ASSETS_BASE_URL` is set
-  on Railway to `…/MineLatino-Launcher/releases/download/RELEASE_TAG`. What still
-  blocks an actual self-update is publishing a first release (upload the build output
-  and set `RELEASE_TAG_NAME`) — until then `/api/release` correctly reports "up to
-  date". The launcher's history is a clean orphan root (upstream was a shallow clone
-  that could not be pushed).
+  to them in `build/electron-builder.config.ts`. **v0.68.1 is published** (seven
+  assets) and the Railway manifest is live: `RELEASE_TAG_NAME=v0.68.1` and
+  `RELEASE_ASSETS_BASE_URL=…/MineLatino-Launcher/releases/download/v0.68.1`
+  (the base must carry the tag — see the Phase 5 publish note). `/health` now
+  reports `releaseManifest: true` and the installer download URL returns HTTP 200
+  from GitHub's CDN without auth. To ship the next version, rebuild, `gh release
+  create v<new>`, and bump both Railway variables to the new tag. The launcher's
+  history is a clean orphan root (upstream was a shallow clone that could not be
+  pushed).
 - **Code signing.** The build is unsigned, so Windows SmartScreen will warn on first
   run. Ship the player guide ("Más información → Ejecutar de todos modos") now; a
   certificate later removes the warning.
