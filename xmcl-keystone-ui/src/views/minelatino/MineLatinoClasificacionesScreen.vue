@@ -1,18 +1,16 @@
 <!--
-  MineLatino "Clasificaciones" screen: the staff-site ranking, embedded.
+  MineLatino "Clasificaciones" screen: tabs for the staff-site ranking and the
+  playtime leaderboard.
 
-  The page (`staff.minelatino.net/clasificacion`) is loaded in an inline
-  Electron `<webview>` rather than an iframe on purpose: the site answers with
-  `X-Frame-Options: DENY` / CSP `frame-ancestors 'self'`, so an iframe renders
-  blank, while a `<webview>` is a top-level guest WebContents that ignores those
-  framing headers. Being a guest also lets us `insertCSS()` on `dom-ready` to
-  hide the site's own chrome (global navbar + footer) so ONLY the ranking is
-  visible and interactive — its modality/category filters and pagination keep
-  working because they live inside the retained `section.leaderboards-section`.
+  The "Ranking" tab loads `staff.minelatino.net/clasificacion` in an inline
+  Electron `<webview>` (not an iframe) because the site answers with
+  `X-Frame-Options: DENY` / CSP `frame-ancestors 'self'`. The webview is a
+  top-level guest WebContents that ignores those framing headers. `insertCSS()`
+  on `dom-ready` hides the site's own chrome (global navbar + footer) so ONLY
+  the ranking is visible and interactive.
 
-  The webview is created imperatively (not in the template) because the shared
-  `vite.config.ts` registers no `isCustomElement` for `<webview>`, so Vue's
-  compiler would fail to resolve the tag. `kMineLatino` comes from the shell.
+  The "Horas jugadas" tab fetches the playtime leaderboard from the backend
+  and renders a styled list with the top 50 players.
 -->
 <template>
   <div
@@ -33,6 +31,7 @@
       </div>
       <div class="flex-grow" />
       <v-btn
+        v-if="activeTab === 'ranking'"
         icon
         size="small"
         variant="text"
@@ -43,6 +42,19 @@
         <v-icon aria-hidden="true"> refresh </v-icon>
       </v-btn>
       <v-btn
+        v-else
+        icon
+        size="small"
+        variant="text"
+        data-testid="minelatino-clasificaciones-playtime-refresh"
+        :aria-label="t('MineLatinoClasificaciones.retry')"
+        :disabled="playtimeLoading"
+        @click="fetchPlaytimeLeaderboard"
+      >
+        <v-icon aria-hidden="true"> refresh </v-icon>
+      </v-btn>
+      <v-btn
+        v-if="activeTab === 'ranking'"
         icon
         size="small"
         variant="text"
@@ -54,47 +66,138 @@
       </v-btn>
     </div>
 
-    <div class="ml-class-frame flex-grow">
-      <!-- The <webview> guest is appended here imperatively (see onMounted). -->
-      <div ref="host" class="ml-class-host" />
+    <v-tabs
+      v-model="activeTab"
+      density="compact"
+      color="primary"
+      class="ml-class-tabs"
+    >
+      <v-tab value="ranking">
+        <v-icon start size="16" aria-hidden="true"> leaderboard </v-icon>
+        {{ t('MineLatinoClasificaciones.tabs.ranking') }}
+      </v-tab>
+      <v-tab value="playtime">
+        <v-icon start size="16" aria-hidden="true"> schedule </v-icon>
+        {{ t('MineLatinoClasificaciones.tabs.playtime') }}
+      </v-tab>
+    </v-tabs>
 
-      <transition name="fade-transition">
-        <div v-if="loading && !error" class="ml-class-overlay">
-          <v-progress-circular
-            indeterminate
-            size="28"
-            width="3"
+    <v-window v-model="activeTab" class="ml-class-window flex-grow">
+      <!-- Ranking tab: staff-site webview -->
+      <v-window-item value="ranking" class="ml-class-frame h-full">
+        <div ref="host" class="ml-class-host" />
+
+        <transition name="fade-transition">
+          <div v-if="loading && !error" class="ml-class-overlay">
+            <v-progress-circular
+              indeterminate
+              size="28"
+              width="3"
+              :color="accentColor || 'primary'"
+            />
+            <span class="ml-class-overlay-text">{{ t('MineLatinoClasificaciones.loading') }}</span>
+          </div>
+        </transition>
+
+        <div v-if="error" class="ml-class-overlay">
+          <v-icon size="36" color="grey" aria-hidden="true"> wifi_off </v-icon>
+          <div class="ml-class-overlay-text">
+            {{ t('MineLatinoClasificaciones.error') }}
+          </div>
+          <v-btn
+            class="mt-3"
+            size="small"
+            variant="tonal"
             :color="accentColor || 'primary'"
-          />
-          <span class="ml-class-overlay-text">{{ t('MineLatinoClasificaciones.loading') }}</span>
+            @click="reload"
+          >
+            <v-icon start aria-hidden="true"> refresh </v-icon>
+            {{ t('MineLatinoClasificaciones.retry') }}
+          </v-btn>
         </div>
-      </transition>
+      </v-window-item>
 
-      <div v-if="error" class="ml-class-overlay">
-        <v-icon size="36" color="grey" aria-hidden="true"> wifi_off </v-icon>
-        <div class="ml-class-overlay-text">
-          {{ t('MineLatinoClasificaciones.error') }}
+      <!-- Playtime tab: leaderboard from backend -->
+      <v-window-item value="playtime" class="ml-class-frame h-full">
+        <div class="ml-pt flex flex-col h-full">
+          <div class="ml-pt-head px-4 py-2">
+            <span class="ml-pt-head-rank">{{ t('MineLatinoClasificaciones.playtimeRank') }}</span>
+            <span class="ml-pt-head-name">{{ t('MineLatinoClasificaciones.playtimeName') }}</span>
+            <span class="ml-pt-head-hours">{{ t('MineLatinoClasificaciones.playtimeHours') }}</span>
+          </div>
+
+          <div class="ml-pt-list flex-grow overflow-y-auto px-2 pb-2">
+            <!-- Loading -->
+            <div v-if="playtimeLoading && playtimeEntries.length === 0" class="ml-pt-state">
+              <v-progress-circular
+                indeterminate
+                size="28"
+                width="3"
+                :color="accentColor || 'primary'"
+              />
+              <span class="ml-pt-state-text">{{ t('MineLatinoClasificaciones.playtimeLoading') }}</span>
+            </div>
+
+            <!-- Error -->
+            <div v-else-if="playtimeError && playtimeEntries.length === 0" class="ml-pt-state">
+              <v-icon size="36" color="grey" aria-hidden="true"> wifi_off </v-icon>
+              <span class="ml-pt-state-text">{{ t('MineLatinoClasificaciones.playtimeError') }}</span>
+              <v-btn
+                class="mt-3"
+                size="small"
+                variant="tonal"
+                :color="accentColor || 'primary'"
+                @click="fetchPlaytimeLeaderboard"
+              >
+                <v-icon start aria-hidden="true"> refresh </v-icon>
+                {{ t('MineLatinoClasificaciones.retry') }}
+              </v-btn>
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="playtimeEntries.length === 0" class="ml-pt-state">
+              <v-icon size="36" color="grey" aria-hidden="true"> schedule </v-icon>
+              <span class="ml-pt-state-text">{{ t('MineLatinoClasificaciones.playtimeEmpty') }}</span>
+            </div>
+
+            <!-- Entries -->
+            <template v-else>
+              <div
+                v-for="entry in playtimeEntries"
+                :key="entry.rank"
+                class="ml-pt-row"
+                :class="{
+                  'ml-pt-row--gold': entry.rank === 1,
+                  'ml-pt-row--silver': entry.rank === 2,
+                  'ml-pt-row--bronze': entry.rank === 3,
+                }"
+              >
+                <span class="ml-pt-row-rank">
+                  <v-icon v-if="entry.rank === 1" size="18" color="#FFD700" aria-hidden="true"> emoji_events </v-icon>
+                  <v-icon v-else-if="entry.rank === 2" size="18" color="#C0C0C0" aria-hidden="true"> emoji_events </v-icon>
+                  <v-icon v-else-if="entry.rank === 3" size="18" color="#CD7F32" aria-hidden="true"> emoji_events </v-icon>
+                  <span v-else>{{ entry.rank }}</span>
+                </span>
+                <span class="ml-pt-row-name">{{ entry.name }}</span>
+                <span class="ml-pt-row-hours">{{ formatHours(entry.playtime) }}</span>
+              </div>
+            </template>
+          </div>
         </div>
-        <v-btn
-          class="mt-3"
-          size="small"
-          variant="tonal"
-          :color="accentColor || 'primary'"
-          @click="reload"
-        >
-          <v-icon start aria-hidden="true"> refresh </v-icon>
-          {{ t('MineLatinoClasificaciones.retry') }}
-        </v-btn>
-      </div>
-    </div>
+      </v-window-item>
+    </v-window>
   </div>
 </template>
 <script lang="ts" setup>
-import { kMineLatino } from '@/composables/minelatino'
+import type { MineLatinoPlaytimeLeaderboardEntry } from '@xmcl/runtime-api'
+import { MineLatinoServiceKey } from '@xmcl/runtime-api'
 import { injection } from '@/util/inject'
+import { useService } from '@/composables/service'
+import { kMineLatino } from '@/composables/minelatino'
 
 const { t } = useI18n()
 const { accentColor, openInBrowser } = injection(kMineLatino)
+const service = useService(MineLatinoServiceKey)
 
 /**
  * The staff-site ranking page, opened with the default modality/category/page.
@@ -126,10 +229,42 @@ interface WebviewElement extends HTMLElement {
   reload(): void
 }
 
+const activeTab = ref<'ranking' | 'playtime'>('ranking')
+
 const host = ref<HTMLElement>()
 const loading = ref(true)
 const error = ref(false)
 let webview: WebviewElement | undefined
+
+// Playtime leaderboard state
+const playtimeEntries = ref<MineLatinoPlaytimeLeaderboardEntry[]>([])
+const playtimeLoading = ref(false)
+const playtimeErrorState = ref(false)
+
+function formatHours(ms: number): string {
+  const hours = ms / 3_600_000
+  if (hours >= 100) return `${Math.round(hours)} h`
+  return `${hours.toFixed(1)} h`
+}
+
+async function fetchPlaytimeLeaderboard() {
+  playtimeLoading.value = true
+  playtimeErrorState.value = false
+  try {
+    playtimeEntries.value = await service.getPlaytimeLeaderboard()
+  } catch {
+    playtimeErrorState.value = true
+  } finally {
+    playtimeLoading.value = false
+  }
+}
+
+// Fetch leaderboard when switching to the playtime tab
+watch(activeTab, (tab) => {
+  if (tab === 'playtime' && playtimeEntries.value.length === 0 && !playtimeLoading.value) {
+    void fetchPlaytimeLeaderboard()
+  }
+})
 
 function reload() {
   if (!webview) return
@@ -205,6 +340,15 @@ onMounted(() => {
   color: var(--ml-dim);
 }
 
+.ml-class-tabs {
+  flex-grow: 0;
+}
+
+.ml-class-window {
+  position: relative;
+  min-height: 0;
+}
+
 .ml-class-frame {
   position: relative;
   min-height: 0;
@@ -235,5 +379,163 @@ onMounted(() => {
 .ml-class-overlay-text {
   font-size: 0.86rem;
   color: var(--ml-dim);
+}
+
+/* ── Playtime leaderboard ─────────────────────────────────────────────────── */
+
+.ml-pt {
+  /* inherits from parent */
+}
+
+.ml-pt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--ml-border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ml-dim);
+}
+
+.ml-pt-head-rank {
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ml-pt-head-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.ml-pt-head-hours {
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ml-pt-list {
+  /* scrollbar styling handled by global ml-scroll */
+}
+
+.ml-pt-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.ml-pt-state-text {
+  font-size: 0.86rem;
+  color: var(--ml-dim);
+}
+
+.ml-pt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-radius: var(--ml-radius-sm, 6px);
+  font-size: 0.88rem;
+  transition: background-color 0.15s ease;
+}
+
+.ml-pt-row:hover {
+  background-color: var(--ml-raise, rgba(255, 255, 255, 0.04));
+}
+
+.ml-pt-row--gold {
+  background-color: rgba(255, 215, 0, 0.08);
+}
+
+.ml-pt-row--gold:hover {
+  background-color: rgba(255, 215, 0, 0.14);
+}
+
+.ml-pt-row--silver {
+  background-color: rgba(192, 192, 192, 0.06);
+}
+
+.ml-pt-row--silver:hover {
+  background-color: rgba(192, 192, 192, 0.12);
+}
+
+.ml-pt-row--bronze {
+  background-color: rgba(205, 127, 50, 0.06);
+}
+
+.ml-pt-row--bronze:hover {
+  background-color: rgba(205, 127, 50, 0.12);
+}
+
+.ml-pt-row-rank {
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--ml-dim);
+}
+
+.ml-pt-row--gold .ml-pt-row-rank {
+  color: #FFD700;
+}
+
+.ml-pt-row--silver .ml-pt-row-rank {
+  color: #C0C0C0;
+}
+
+.ml-pt-row--bronze .ml-pt-row-rank {
+  color: #CD7F32;
+}
+
+.ml-pt-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ml-text);
+  font-weight: 500;
+}
+
+.ml-pt-row--gold .ml-pt-row-name {
+  color: #FFD700;
+  font-weight: 700;
+}
+
+.ml-pt-row--silver .ml-pt-row-name {
+  color: #E0E0E0;
+  font-weight: 600;
+}
+
+.ml-pt-row--bronze .ml-pt-row-name {
+  color: #CD7F32;
+  font-weight: 600;
+}
+
+.ml-pt-row-hours {
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ml-dim);
+  font-weight: 500;
+}
+
+.ml-pt-row--gold .ml-pt-row-hours {
+  color: #FFD700;
+}
+
+.ml-pt-row--silver .ml-pt-row-hours {
+  color: #C0C0C0;
+}
+
+.ml-pt-row--bronze .ml-pt-row-hours {
+  color: #CD7F32;
 }
 </style>

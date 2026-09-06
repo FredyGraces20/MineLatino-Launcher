@@ -259,6 +259,18 @@ export interface MineLatinoWebWindowInfo {
 }
 
 /**
+ * One entry in the playtime leaderboard, served by the backend's
+ * `GET /api/playtime/leaderboard`.
+ */
+export interface MineLatinoPlaytimeLeaderboardEntry {
+  rank: number
+  name: string
+  /** Total playtime in milliseconds. */
+  playtime: number
+  updatedAt: string
+}
+
+/**
  * Fired when a background refresh produces new data, so the home screen updates
  * without a manual reload.
  */
@@ -310,6 +322,18 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
   closeWebWindow(id: string): Promise<void>
 
   getWebWindows(): Promise<MineLatinoWebWindowInfo[]>
+
+  /**
+   * Reports the player's accumulated playtime to the backend leaderboard.
+   * Called automatically after each Minecraft session ends.
+   */
+  reportPlaytime(name: string, playtime: number): Promise<void>
+
+  /**
+   * Fetches the playtime leaderboard from the backend. Never rejects: returns
+   * an empty array on failure.
+   */
+  getPlaytimeLeaderboard(): Promise<MineLatinoPlaytimeLeaderboardEntry[]>
 }
 
 export const MineLatinoServiceKey: ServiceKey<MineLatinoService> = 'MineLatinoService'

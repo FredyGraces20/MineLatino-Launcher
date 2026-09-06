@@ -6,6 +6,7 @@ import {
   type MineLatinoNewsEmbed,
   type MineLatinoNewsItem,
   type MineLatinoNewsResult,
+  type MineLatinoPlaytimeLeaderboardEntry,
   type MineLatinoService as IMineLatinoService,
   type MineLatinoStoreCategory,
   type MineLatinoStoreProduct,
@@ -18,6 +19,8 @@ import {
 } from '@xmcl/runtime-api'
 import { Inject, LauncherAppKey, type LauncherApp } from '@xmcl/runtime/app'
 import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
+import { LaunchService } from '~/launch'
+import { InstanceService } from '~/instance'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { MineLatinoWebWindows } from './webWindow'
 
@@ -177,6 +180,21 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       // Do not block boot on the network: the screen already has cached content.
       void this.#refresh()
       this.#timer = setInterval(() => { void this.#refresh() }, REFRESH_INTERVAL_MS)
+
+      // Auto-report playtime after each Minecraft session ends.
+      const launchService = await this.app.registry.get(LaunchService)
+      const instanceService = await this.app.registry.get(InstanceService)
+      launchService.on('minecraft-exit', (options) => {
+        if (!options.gameDirectory || !options.duration) return
+        const user = options.user
+        if (!user?.selectedProfile || !user.profiles) return
+        const profile = user.profiles[user.selectedProfile]
+        const name = profile?.name || user.username
+        if (!name) return
+        const instance = instanceService.state.all[options.gameDirectory]
+        const playtime = instance ? instance.playtime : 0
+        void this.reportPlaytime(name, playtime)
+      })
     })
     this.#windows = new MineLatinoWebWindows(
       message => this.log(message),
@@ -485,5 +503,49 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   async getWebWindows(): Promise<MineLatinoWebWindowInfo[]> {
     await this.initialize()
     return this.#windows.list()
+  }
+
+  async reportPlaytime(name: string, playtime: number): Promise<void> {
+    if (!this.#backendUrl) return
+    try {
+      await this.app.fetch(`${this.#backendUrl}/api/playtime/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': this.app.userAgent,
+        },
+        body: JSON.stringify({ name, playtime }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch (err) {
+      this.warn(`MineLatino playtime report failed: ${(err as Error).message}`)
+    }
+  }
+
+  async getPlaytimeLeaderboard(): Promise<MineLatinoPlaytimeLeaderboardEntry[]> {
+    if (!this.#backendUrl) return []
+    try {
+      const { ok, body } = await this.#request('/api/playtime/leaderboard')
+      if (!ok) return []
+      const source = asObject(body)
+      const items = Array.isArray(source.items) ? source.items : []
+      return items
+        .map((raw): MineLatinoPlaytimeLeaderboardEntry | undefined => {
+          const entry = asObject(raw)
+          const rank = asNumber(entry.rank, 0)
+          const name = asString(entry.name)
+          if (!rank || !name) return undefined
+          return {
+            rank,
+            name,
+            playtime: asNumber(entry.playtime, 0),
+            updatedAt: asString(entry.updatedAt),
+          }
+        })
+        .filter((e): e is MineLatinoPlaytimeLeaderboardEntry => !!e)
+    } catch (err) {
+      this.warn(`MineLatino leaderboard fetch failed: ${(err as Error).message}`)
+      return []
+    }
   }
 }

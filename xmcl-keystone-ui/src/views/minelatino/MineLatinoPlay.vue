@@ -123,6 +123,15 @@
                 {{ latencyLabel }}
               </div>
             </div>
+            <div class="ml-play-stat">
+              <div class="ml-play-stat-label">
+                {{ t('MineLatinoPlay.playtime') }}
+              </div>
+              <div class="ml-play-stat-value">
+                <v-icon size="14" start aria-hidden="true"> schedule </v-icon>
+                {{ playtimeLabel }}
+              </div>
+            </div>
           </div>
 
           <!-- The server's own MOTD, rendered with its colours intact. -->
@@ -316,6 +325,13 @@ const versionName = computed(() => (online.value ? status.value.version.name : '
 const latencyLabel = computed(() =>
   online.value ? t('MineLatinoPlay.pingMs', { ms: status.value.ping }) : '—',
 )
+
+/** Total playtime for the selected instance, formatted as hours with one decimal. */
+const playtimeLabel = computed(() => {
+  const ms = selected.value?.playtime ?? 0
+  const hours = ms / 3_600_000
+  return t('MineLatinoPlay.playtimeHours', { hours: hours.toFixed(1) })
+})
 
 const address = computed(() => {
   const host = server.value?.host?.trim()

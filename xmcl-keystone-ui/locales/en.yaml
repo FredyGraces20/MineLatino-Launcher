@@ -48,6 +48,16 @@ MineLatinoClasificaciones:
   retry: Retry
   subtitle: Server player rankings
   title: Leaderboards
+  tabs:
+    ranking: Ranking
+    playtime: Playtime
+  playtimeTitle: Players with most hours played
+  playtimeRank: '#'
+  playtimeName: Player
+  playtimeHours: Hours
+  playtimeEmpty: No playtime data yet.
+  playtimeLoading: Loading playtime…
+  playtimeError: Could not load the playtime ranking.
 MineLatinoHome:
   announcement: Announcement
   attachment: Attachment
@@ -97,6 +107,8 @@ MineLatinoPlay:
   players: '{online}/{max}'
   playersOffline: Server unreachable
   playersOnline: Players online
+  playtime: Hours played
+  playtimeHours: '{hours} h'
   startTitle: MineLatino
   version: Version
 MineLatinoPreset:
