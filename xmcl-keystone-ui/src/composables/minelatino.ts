@@ -399,7 +399,7 @@ export function useMineLatino() {
     featuredProducts.value = results
       .flatMap(r => r?.items ?? [])
       .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
+      .slice(0, 6)
   }
 
   /**

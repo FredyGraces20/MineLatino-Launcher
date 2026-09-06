@@ -416,15 +416,17 @@ const productsError = computed(
   gap: 10px;
   padding: 10px;
   border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border: 1px solid color-mix(in srgb, var(--ml-accent) 18%, transparent);
+  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .ml-product:hover {
-  border-color: var(--ml-accent);
+  border-color: color-mix(in srgb, var(--ml-accent) 55%, transparent);
   background-color: color-mix(in srgb, var(--ml-accent) 8%, transparent);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ml-accent) 45%, transparent);
 }
 
 .ml-product:focus-visible {
@@ -440,6 +442,7 @@ const productsError = computed(
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   background-color: rgba(var(--v-theme-on-surface), 0.08);
 }
 
@@ -454,6 +457,7 @@ const productsError = computed(
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .ml-product-name {
@@ -479,7 +483,9 @@ const productsError = computed(
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .ml-badge {
@@ -502,8 +508,9 @@ const productsError = computed(
 }
 
 .ml-price {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--ml-accent);
 }
 
 .ml-price-old {

@@ -1,7 +1,7 @@
 <!--
   MineLatino home: a carousel that rotates through the three things the
-  community publishes — the latest 3 announcements, the latest 3 server
-  updates and 3 random products from the shop — changing page every few
+  community publishes — the latest 3 announcements, the latest 6 server
+  updates and 6 random products from the shop — changing page every few
   seconds (paused while the pointer is over it), with dots and arrows for
   manual navigation.
 
@@ -35,7 +35,7 @@
             </v-btn>
           </div>
 
-          <!-- Three cards per page, whatever the feed holds. -->
+          <!-- Cards per page (3 news, 6 updates, 6 products), whatever the feed holds. -->
           <div class="ml-carousel-grid min-h-0 flex-1">
             <template v-if="page === 0">
               <template v-if="latestNews.length > 0">
@@ -218,7 +218,7 @@ const {
 const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 
 const latestNews = computed(() => news.value.items.slice(0, 3))
-const latestUpdates = computed(() => updates.value.items.slice(0, 3))
+const latestUpdates = computed(() => updates.value.items.slice(0, 6))
 
 const pages = computed(() => [
   { key: 'news', icon: 'campaign', title: t('MineLatinoHome.news'), to: '/minelatino/anuncios' },
@@ -309,13 +309,21 @@ function plain(source: string) {
   cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--ml-accent) 20%, transparent);
   background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s ease, box-shadow 0.22s ease;
 }
 
 .ml-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--ml-accent) 55%, transparent);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ml-accent) 45%, transparent);
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--ml-accent) 60%, transparent);
+  box-shadow:
+    0 18px 34px -18px color-mix(in srgb, var(--ml-accent) 60%, transparent),
+    0 6px 16px -10px rgba(0, 0, 0, 0.5);
+}
+
+.ml-card:active {
+  transform: translateY(-1px) scale(0.99);
 }
 
 .ml-card:focus-visible {
@@ -399,7 +407,9 @@ function plain(source: string) {
   color: inherit;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s ease, background-color 0.2s ease;
+  transition:
+    opacity 0.2s ease, background-color 0.2s ease,
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
   z-index: 3;
 }
 
@@ -410,6 +420,12 @@ function plain(source: string) {
 
 .ml-arrow:hover {
   background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.6);
+}
+
+.ml-arrow:active {
+  transform: translateY(-50%) scale(0.94);
 }
 
 .ml-arrow--left {

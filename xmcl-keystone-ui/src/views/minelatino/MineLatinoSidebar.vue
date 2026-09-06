@@ -225,11 +225,20 @@ async function onLogout() {
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+  transition:
+    background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .ml-side-item:hover {
   background-color: rgba(var(--v-theme-on-surface), 0.06);
+  transform: translateX(3px);
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+}
+
+.ml-side-item:active {
+  transform: translateX(1px) scale(0.98);
 }
 
 .ml-side-item:focus-visible {
@@ -241,6 +250,9 @@ async function onLogout() {
   background-color: color-mix(in srgb, var(--ml-accent) 16%, transparent);
   border-color: color-mix(in srgb, var(--ml-accent) 40%, transparent);
   color: var(--ml-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 8px 20px -14px color-mix(in srgb, var(--ml-accent) 90%, transparent);
 }
 
 .ml-side-item--danger:hover {
@@ -300,11 +312,19 @@ async function onLogout() {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  transition:
+    background-color 0.18s ease, border-color 0.18s ease,
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .ml-side-profile:hover {
   background-color: rgba(var(--v-theme-on-surface), 0.06);
+  transform: translateX(3px);
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+}
+
+.ml-side-profile:active {
+  transform: translateX(1px) scale(0.98);
 }
 
 .ml-side-profile:focus-visible {
@@ -315,6 +335,7 @@ async function onLogout() {
 .ml-side-profile--active {
   border-color: color-mix(in srgb, var(--ml-accent) 45%, transparent);
   background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .ml-side-profile-icon {

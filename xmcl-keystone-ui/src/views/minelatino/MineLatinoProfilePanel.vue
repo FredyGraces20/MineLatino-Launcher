@@ -262,12 +262,20 @@ function runtimesOf(inst: InstanceData) {
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  transition:
+    background-color 0.18s ease, border-color 0.18s ease,
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .ml-right-user:hover {
   background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--ml-accent) 35%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px -14px color-mix(in srgb, var(--ml-accent) 90%, transparent);
+}
+
+.ml-right-user:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .ml-right-user:focus-visible {
@@ -349,16 +357,25 @@ function runtimesOf(inst: InstanceData) {
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  transition:
+    background-color 0.18s ease, border-color 0.18s ease,
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 .ml-drawer-item:hover {
   background-color: rgba(var(--v-theme-on-surface), 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+}
+
+.ml-drawer-item:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .ml-drawer-item--active {
   border-color: color-mix(in srgb, var(--ml-accent) 45%, transparent);
   background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .ml-drawer-icon {
