@@ -277,9 +277,12 @@ function plain(source: string) {
 }
 
 .ml-carousel-title {
-  font-size: 1.15rem;
+  font-family: var(--ml-font-head);
+  font-size: 1.1rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ml-text);
 }
 
 .ml-carousel-grid {
@@ -295,8 +298,8 @@ function plain(source: string) {
   align-items: center;
   justify-content: center;
   padding: 40px 16px;
-  border-radius: 14px;
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.2);
+  border-radius: var(--ml-radius);
+  border: 1px dashed var(--ml-border);
   text-align: center;
 }
 
@@ -304,29 +307,23 @@ function plain(source: string) {
   display: flex;
   flex-direction: column;
   min-height: 240px;
-  border-radius: 14px;
+  border-radius: var(--ml-radius);
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 20%, transparent);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
-  transition:
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.18s ease, box-shadow 0.22s ease;
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
+  transition: transform 0.2s ease, border-color 0.18s ease, box-shadow 0.2s ease;
 }
 
 .ml-card:hover {
-  transform: translateY(-5px);
-  border-color: color-mix(in srgb, var(--ml-accent) 60%, transparent);
-  box-shadow:
-    0 18px 34px -18px color-mix(in srgb, var(--ml-accent) 60%, transparent),
-    0 6px 16px -10px rgba(0, 0, 0, 0.5);
+  transform: translateY(-6px);
+  border-color: var(--ml-accent-border);
+  box-shadow: 0 12px 28px -8px rgba(187, 128, 29, 0.2);
 }
 
-/* Kept shallow with a long perspective on purpose: a card is 240px+ tall, so
-   the 9deg that reads as a key press on a 36px button would look like the
-   whole panel toppling forward here. */
 .ml-card:active {
-  transform: perspective(1200px) rotateX(4deg) translateY(-1px) scale(0.99);
+  transform: translateY(-2px);
+  filter: brightness(0.97);
 }
 
 .ml-card:focus-visible {
@@ -340,7 +337,7 @@ function plain(source: string) {
   object-fit: cover;
   flex-grow: 0;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  background-color: var(--ml-well);
 }
 
 .ml-card-body {
@@ -353,30 +350,31 @@ function plain(source: string) {
 .ml-card-title {
   font-size: 0.95rem;
   font-weight: 700;
+  color: var(--ml-text);
 }
 
 .ml-card-time {
   font-size: 0.74rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
   margin-left: auto;
 }
 
 .ml-card-text {
   font-size: 0.85rem;
   line-height: 1.45;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
   overflow-wrap: anywhere;
 }
 
 .ml-card-price {
   font-size: 0.95rem;
   font-weight: 800;
-  color: var(--ml-accent);
+  color: var(--ml-accent-text);
 }
 
 .ml-card-price-old {
   font-size: 0.8rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
   text-decoration: line-through;
 }
 
@@ -405,14 +403,12 @@ function plain(source: string) {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 82%, transparent);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
   color: inherit;
   cursor: pointer;
   opacity: 0;
-  transition:
-    opacity 0.2s ease, background-color 0.2s ease,
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  transition: opacity 0.2s ease, background-color 0.2s ease, transform 0.16s ease;
   z-index: 3;
 }
 
@@ -422,9 +418,9 @@ function plain(source: string) {
 }
 
 .ml-arrow:hover {
-  background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  transform: translateY(-50%) scale(1.08);
-  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.6);
+  background-color: var(--ml-raise);
+  border-color: var(--ml-accent-border);
+  transform: translateY(-50%) scale(1.06);
 }
 
 .ml-arrow:active {
@@ -445,7 +441,7 @@ function plain(source: string) {
   padding: 0;
   border: none;
   border-radius: 999px;
-  background-color: rgba(var(--v-theme-on-surface), 0.28);
+  background-color: var(--ml-border);
   cursor: pointer;
   transition: width 0.25s ease, background-color 0.25s ease;
 }

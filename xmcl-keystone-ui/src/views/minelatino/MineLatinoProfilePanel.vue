@@ -230,24 +230,27 @@ function runtimesOf(inst: InstanceData) {
   width: 264px;
   flex-grow: 0;
   flex-shrink: 0;
-  border-left: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 55%, transparent);
+  border-left: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
 }
 
 .ml-right-card {
   padding: 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 7%, rgba(var(--v-theme-surface), 0.6));
+  border-radius: var(--ml-radius);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-raise);
 }
 
 .ml-right-label {
   margin-bottom: 6px;
-  font-size: 0.7rem;
+  font-family: var(--ml-font-head);
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
+  border-bottom: 2px solid var(--ml-accent-border);
+  padding-bottom: 4px;
 }
 
 .ml-right-user {
@@ -256,26 +259,22 @@ function runtimesOf(inst: InstanceData) {
   gap: 10px;
   width: 100%;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: var(--ml-radius-sm);
   border: 1px solid transparent;
   background: none;
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition:
-    background-color 0.18s ease, border-color 0.18s ease,
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
 }
 
 .ml-right-user:hover {
-  background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
-  border-color: color-mix(in srgb, var(--ml-accent) 35%, transparent);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px -14px color-mix(in srgb, var(--ml-accent) 90%, transparent);
+  background-color: var(--ml-well);
+  border-color: var(--ml-border-soft);
 }
 
 .ml-right-user:active {
-  transform: translateY(0) scale(0.98);
+  filter: brightness(0.95);
 }
 
 .ml-right-user:focus-visible {
@@ -287,6 +286,7 @@ function runtimesOf(inst: InstanceData) {
   display: block;
   font-size: 0.9rem;
   font-weight: 700;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -295,7 +295,7 @@ function runtimesOf(inst: InstanceData) {
 .ml-right-sub {
   display: block;
   font-size: 0.74rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
 }
 
 .ml-right-profile {
@@ -311,7 +311,7 @@ function runtimesOf(inst: InstanceData) {
   object-fit: cover;
   flex-grow: 0;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  background-color: var(--ml-well);
 }
 
 .ml-right-tags {
@@ -328,9 +328,10 @@ function runtimesOf(inst: InstanceData) {
   padding: 1px 8px;
   border-radius: 999px;
   font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.02em;
-  background-color: color-mix(in srgb, var(--ml-accent) 14%, transparent);
-  color: var(--ml-accent);
+  background-color: rgba(232, 163, 46, 0.12);
+  color: var(--ml-accent-text);
 }
 
 .ml-tag-icon {
@@ -343,39 +344,35 @@ function runtimesOf(inst: InstanceData) {
   padding: 8px 4px;
   font-size: 0.8rem;
   line-height: 1.4;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 
+/* Drawer items: flat hover, no lift. */
 .ml-drawer-item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px;
-  border-radius: 10px;
+  border-radius: var(--ml-radius-sm);
   border: 1px solid transparent;
   background: none;
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition:
-    background-color 0.18s ease, border-color 0.18s ease,
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
 }
 
 .ml-drawer-item:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.06);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+  background-color: var(--ml-raise);
 }
 
 .ml-drawer-item:active {
-  transform: translateY(0) scale(0.98);
+  filter: brightness(0.95);
 }
 
 .ml-drawer-item--active {
-  border-color: color-mix(in srgb, var(--ml-accent) 45%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-color: var(--ml-accent-border);
+  background-color: rgba(232, 163, 46, 0.08);
 }
 
 .ml-drawer-icon {
@@ -385,6 +382,6 @@ function runtimesOf(inst: InstanceData) {
   object-fit: cover;
   flex-grow: 0;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  background-color: var(--ml-well);
 }
 </style>

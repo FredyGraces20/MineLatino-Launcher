@@ -193,24 +193,25 @@ onMounted(() => {
 }
 
 .ml-class-title {
+  font-family: var(--ml-font-head);
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.2;
+  color: var(--ml-text);
 }
 
 .ml-class-subtitle {
   font-size: 0.8rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
 }
 
 .ml-class-frame {
   position: relative;
   min-height: 0;
-  border-radius: 14px;
+  border-radius: var(--ml-radius);
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
-  box-shadow: 0 12px 30px -22px rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
 }
 
 .ml-class-host {
@@ -228,11 +229,11 @@ onMounted(() => {
   gap: 12px;
   text-align: center;
   padding: 24px;
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 82%, transparent);
+  background-color: var(--ml-panel);
 }
 
 .ml-class-overlay-text {
   font-size: 0.86rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
 }
 </style>

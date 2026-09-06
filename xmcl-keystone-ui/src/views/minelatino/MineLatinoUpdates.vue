@@ -1,8 +1,6 @@
 <template>
   <v-card
     class="ml-panel flex h-full flex-col"
-    :color="cardColor"
-    :style="{ 'backdrop-filter': `blur(${blurCard}px)` }"
   >
     <v-card-item class="pb-2">
       <v-card-title class="flex items-center gap-2 text-base">
@@ -82,13 +80,11 @@
 </template>
 <script lang="ts" setup>
 import { kMineLatino, useRelativeTime } from '@/composables/minelatino'
-import { kTheme } from '@/composables/theme'
 import { BuiltinImages } from '@/constant'
 import { vFallbackImg } from '@/directives/fallbackImage'
 import { injection } from '@/util/inject'
 
 const { t } = useI18n()
-const { cardColor, blurCard } = injection(kTheme)
 const {
   updates,
   updatesSourceLabel,
@@ -102,8 +98,10 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 
 <style scoped>
 .ml-panel {
-  border-radius: 10px;
+  border-radius: var(--ml-radius);
   min-height: 240px;
+  background: var(--ml-panel);
+  border: 1px solid var(--ml-border);
 }
 
 .ml-scroll {
@@ -129,11 +127,11 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 }
 
 .ml-entry + .ml-entry {
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-top: 1px solid var(--ml-border-soft);
 }
 
 .ml-entry:hover {
-  background-color: color-mix(in srgb, var(--ml-accent) 10%, transparent);
+  background-color: var(--ml-raise);
 }
 
 .ml-entry:focus-visible {
@@ -151,7 +149,7 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  background-color: var(--ml-well);
 }
 
 .ml-thumb img {
@@ -164,6 +162,7 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
   font-weight: 600;
   font-size: 0.9rem;
   line-height: 1.25;
+  color: var(--ml-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -172,13 +171,13 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 
 .ml-entry-date {
   font-size: 0.72rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
   margin-top: 1px;
 }
 
 .ml-entry-excerpt {
   font-size: 0.8rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
   margin-top: 2px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -189,13 +188,13 @@ const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 .ml-entry-arrow {
   flex-grow: 0;
   flex-shrink: 0;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
 /* Hovering a row is the affordance that the whole row is clickable. */
 .ml-entry:hover .ml-entry-arrow {
-  color: var(--ml-accent);
+  color: var(--ml-accent-text);
   transform: translateX(2px);
 }
 </style>

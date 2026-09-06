@@ -192,8 +192,9 @@
             <SkinView
               :skin="skinUrl"
               :name="playerName"
-              :width="300"
-              :height="400"
+              :width="360"
+              :height="520"
+              :zoom="0.9"
               animation="idle"
             />
           </div>
@@ -401,7 +402,7 @@ function onStart() {
   min-height: 0;
 }
 
-/* Frosted identity card so the logo/name stay legible over the backdrop. */
+/* Flat identity card matching the shop panel style. */
 .ml-play-idcard {
   display: flex;
   flex-direction: column;
@@ -409,12 +410,10 @@ function onStart() {
   width: 100%;
   max-width: 620px;
   padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 58%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 20px 44px -26px rgba(0, 0, 0, 0.85);
+  border-radius: var(--ml-radius);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* Manual re-ping, kept from the old players chip and promoted to the card's
@@ -538,9 +537,9 @@ function onStart() {
 .ml-play-stat {
   min-width: 0;
   padding: 9px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
-  background-color: rgba(var(--v-theme-on-surface), 0.045);
+  border-radius: var(--ml-radius-sm);
+  border: 1px solid var(--ml-border-soft);
+  background-color: var(--ml-well);
 }
 
 .ml-play-stat-label {
@@ -654,28 +653,22 @@ function onStart() {
 .ml-play-stage {
   position: relative;
   flex: 0 0 auto;
-  width: 340px;
+  width: 400px;
   display: flex;
   align-items: stretch;
   justify-content: center;
 }
 
-/* Framed glass panel: the skin reads as an exhibit, not a floating canvas. */
+/* Flat stage card matching the shop panel style. */
 .ml-play-stage-card {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  border-radius: 22px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 26%, transparent);
-  background:
-    radial-gradient(120% 85% at 50% 0%, color-mix(in srgb, var(--ml-accent) 15%, transparent), transparent 62%),
-    color-mix(in srgb, rgb(var(--v-theme-surface)) 60%, transparent);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 26px 60px -34px rgba(0, 0, 0, 0.9);
+  border-radius: var(--ml-radius);
+  border: 1px solid var(--ml-border);
+  background: var(--ml-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 
@@ -700,7 +693,7 @@ function onStart() {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 18px 18px 52px;
+  padding: 12px 14px 28px;
   animation: ml-skin-float 6s ease-in-out infinite;
 }
 
@@ -781,30 +774,33 @@ function onStart() {
   50% { opacity: 0.9; transform: scale(1.04); }
 }
 
-/* Hero launch button: taller and accent-lit, and pressed with a deeper 3D
-   tilt than the global one so the primary CTA feels like the most physical
-   thing on screen. */
+/* Hero launch button: shop-style amber pill with hard lip. */
 .ml-play-start {
   height: 56px;
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+  background: var(--ml-cta) !important;
+  color: var(--ml-cta-text) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 18px 34px -16px color-mix(in srgb, var(--ml-accent) 85%, transparent) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 5px 0 var(--ml-cta-lip) !important;
 }
 
 .ml-play-start:not(.v-btn--disabled):hover {
+  background: var(--ml-cta-hover) !important;
+  transform: translateY(2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 24px 46px -16px color-mix(in srgb, var(--ml-accent) 95%, transparent) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 3px 0 var(--ml-cta-lip) !important;
 }
 
-/* `!important` matches the two rules above: the global `.v-btn:not(...)`
-   press selector in common.css outranks a scoped single class, so without it
-   the hero would keep the shallower app-wide tilt. */
 .ml-play-start:not(.v-btn--disabled):active {
-  transform: perspective(800px) rotateX(12deg) translateY(2px) scale(0.98) !important;
+  transform: translateY(4px) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 1px 0 var(--ml-cta-lip) !important;
+  filter: brightness(0.96);
 }
 
 /* The scene is decoration: honour the OS motion preference. */
@@ -824,7 +820,7 @@ function onStart() {
 /* Narrow windows: shrink the stage, then drop it so the CTA stays reachable. */
 @media (max-width: 1100px) {
   .ml-play-stage {
-    width: 270px;
+    width: 320px;
   }
 }
 

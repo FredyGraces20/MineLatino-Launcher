@@ -18,8 +18,6 @@
   >
     <v-card
       class="ml-panel flex flex-col"
-      :color="cardColor"
-      :style="{ 'backdrop-filter': `blur(${blurCard}px)` }"
     >
       <div class="ml-hero">
         <v-icon size="40" :color="accentColor || 'primary'" aria-hidden="true">
@@ -233,13 +231,11 @@
 </template>
 <script lang="ts" setup>
 import { kMineLatino } from '@/composables/minelatino'
-import { kTheme } from '@/composables/theme'
 import { BuiltinImages } from '@/constant'
 import { vFallbackImg } from '@/directives/fallbackImage'
 import { injection } from '@/util/inject'
 
 const { t } = useI18n()
-const { cardColor, blurCard } = injection(kTheme)
 const {
   branding,
   server,
@@ -304,8 +300,10 @@ const productsError = computed(
 }
 
 .ml-panel {
-  border-radius: 14px;
+  border-radius: var(--ml-radius);
   overflow: hidden;
+  background: var(--ml-panel);
+  border: 1px solid var(--ml-border);
 }
 
 .ml-scroll {
@@ -324,14 +322,16 @@ const productsError = computed(
 }
 
 .ml-hero-title {
-  font-size: 1.35rem;
+  font-family: var(--ml-font-head);
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.2;
+  color: var(--ml-text);
 }
 
 .ml-hero-subtitle {
   font-size: 0.86rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
   max-width: 52ch;
   margin-top: 2px;
 }
@@ -357,9 +357,9 @@ const productsError = computed(
   gap: 6px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  border: 1px solid var(--ml-border);
   background-color: transparent;
-  color: inherit;
+  color: var(--ml-dim);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
@@ -367,7 +367,8 @@ const productsError = computed(
 }
 
 .ml-cat:hover {
-  border-color: var(--ml-accent);
+  border-color: var(--ml-accent-border);
+  color: var(--ml-text);
 }
 
 .ml-cat:focus-visible {
@@ -376,9 +377,9 @@ const productsError = computed(
 }
 
 .ml-cat-active {
-  background-color: var(--ml-accent);
-  border-color: var(--ml-accent);
-  color: #1a1a1a;
+  background-color: var(--ml-cta);
+  border-color: var(--ml-cta-lip);
+  color: var(--ml-cta-text);
 }
 
 .ml-cat-count {
@@ -395,13 +396,15 @@ const productsError = computed(
 }
 
 .ml-products-title {
+  font-family: var(--ml-font-head);
   font-size: 1rem;
   font-weight: 600;
+  color: var(--ml-text);
 }
 
 .ml-products-count {
   font-size: 0.8rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 
 .ml-grid {
@@ -415,18 +418,17 @@ const productsError = computed(
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 18%, transparent);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
+  border-radius: var(--ml-radius-sm);
+  border: 1px solid var(--ml-border-soft);
+  background-color: var(--ml-raise);
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .ml-product:hover {
-  border-color: color-mix(in srgb, var(--ml-accent) 55%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 8%, transparent);
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--ml-accent) 45%, transparent);
+  border-color: var(--ml-accent-border);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px -12px rgba(187, 128, 29, 0.18);
 }
 
 .ml-product:focus-visible {
@@ -443,7 +445,7 @@ const productsError = computed(
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
+  background-color: var(--ml-well);
 }
 
 .ml-product-thumb img {
@@ -464,6 +466,7 @@ const productsError = computed(
   font-weight: 600;
   font-size: 0.9rem;
   line-height: 1.25;
+  color: var(--ml-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -472,7 +475,7 @@ const productsError = computed(
 
 .ml-product-desc {
   font-size: 0.78rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -485,7 +488,7 @@ const productsError = computed(
   gap: 6px;
   margin-top: auto;
   padding-top: 8px;
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-top: 1px solid var(--ml-border-soft);
 }
 
 .ml-badge {
@@ -498,24 +501,24 @@ const productsError = computed(
 }
 
 .ml-badge-sale {
-  background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  color: var(--ml-accent);
+  background-color: rgba(232, 163, 46, 0.15);
+  color: var(--ml-accent-text);
 }
 
 .ml-badge-oos {
-  background-color: rgba(var(--v-theme-on-surface), 0.12);
-  color: var(--color-secondary-text);
+  background-color: var(--ml-well);
+  color: var(--ml-faint);
 }
 
 .ml-price {
   font-weight: 800;
   font-size: 1rem;
-  color: var(--ml-accent);
+  color: var(--ml-accent-text);
 }
 
 .ml-price-old {
   font-size: 0.78rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
   text-decoration: line-through;
 }
 

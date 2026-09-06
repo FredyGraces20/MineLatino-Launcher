@@ -2,8 +2,6 @@
   <v-card
     v-if="items.length > 0"
     class="ml-panel"
-    :color="cardColor"
-    :style="{ 'backdrop-filter': `blur(${blurCard}px)` }"
     data-testid="minelatino-presets"
   >
     <v-card-item class="pb-2">
@@ -120,12 +118,10 @@
 <script lang="ts" setup>
 import { kMineLatino } from '@/composables/minelatino'
 import { useMineLatinoPreset } from '@/composables/minelatinoPreset'
-import { kTheme } from '@/composables/theme'
 import { injection } from '@/util/inject'
 import type { MineLatinoLoader, MineLatinoPreset } from '@xmcl/runtime-api'
 
 const { t } = useI18n()
-const { cardColor, blurCard } = injection(kTheme)
 const { presets, accentColor } = injection(kMineLatino)
 
 const { items, creating, error, skipped, create, select } = useMineLatinoPreset(presets)
@@ -159,7 +155,9 @@ function modList(preset: MineLatinoPreset) {
 
 <style scoped>
 .ml-panel {
-  border-radius: 10px;
+  border-radius: var(--ml-radius);
+  background: var(--ml-panel);
+  border: 1px solid var(--ml-border);
 }
 
 .ml-presets {
@@ -172,9 +170,9 @@ function modList(preset: MineLatinoPreset) {
   display: flex;
   flex-direction: column;
   padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
+  border-radius: var(--ml-radius-sm);
+  border: 1px solid var(--ml-border-soft);
+  background-color: var(--ml-raise);
 }
 
 .ml-preset-head {
@@ -186,6 +184,7 @@ function modList(preset: MineLatinoPreset) {
 .ml-preset-name {
   font-weight: 600;
   font-size: 0.95rem;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -195,7 +194,7 @@ function modList(preset: MineLatinoPreset) {
   margin-top: 4px;
   font-size: 0.8rem;
   line-height: 1.35;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
 }
 
 .ml-preset-meta {
@@ -209,8 +208,9 @@ function modList(preset: MineLatinoPreset) {
   padding: 1px 8px;
   border-radius: 999px;
   font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.02em;
-  background-color: color-mix(in srgb, var(--ml-accent) 14%, transparent);
-  color: var(--ml-accent);
+  background-color: rgba(232, 163, 46, 0.12);
+  color: var(--ml-accent-text);
 }
 </style>

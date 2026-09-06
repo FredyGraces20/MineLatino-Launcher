@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<{
   name?: string
   animation?: 'walking' | 'none' | 'idle' | 'running'
   paused?: boolean
+  zoom?: number
 }>(), {
   width: 210,
   height: 400,
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<{
   name: 'Steve',
   skin: '',
   animation: 'idle',
+  zoom: 0.5,
 })
 
 const canvasRef = ref(null)
@@ -87,7 +89,7 @@ onMounted(() => {
     height: props.height,
     nameTag: props.name || undefined,
     fov: 45,
-    zoom: 0.5,
+    zoom: props.zoom,
   })
 
   viewer.animation = animationObject.value

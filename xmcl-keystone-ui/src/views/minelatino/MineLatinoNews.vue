@@ -1,8 +1,6 @@
 <template>
   <v-card
     class="ml-panel flex h-full flex-col"
-    :color="cardColor"
-    :style="{ 'backdrop-filter': `blur(${blurCard}px)` }"
   >
     <v-card-item class="pb-2">
       <v-card-title class="flex items-center gap-2 text-base">
@@ -189,13 +187,11 @@
 </template>
 <script lang="ts" setup>
 import { kMineLatino, useRelativeTime } from '@/composables/minelatino'
-import { kTheme } from '@/composables/theme'
 import { injection } from '@/util/inject'
 import { renderDiscordMarkdown } from '@/util/minelatinoMarkdown'
 import type { MineLatinoNewsEmbed } from '@xmcl/runtime-api'
 
 const { t, locale } = useI18n()
-const { cardColor, blurCard } = injection(kTheme)
 const { news, newsInviteUrl, isValidating, refreshNews, openInBrowser } = injection(kMineLatino)
 const { from: relativeTime, absolute: absoluteTime } = useRelativeTime()
 
@@ -226,8 +222,10 @@ const render = (source: string) =>
 
 <style scoped>
 .ml-panel {
-  border-radius: 10px;
+  border-radius: var(--ml-radius);
   min-height: 240px;
+  background: var(--ml-panel);
+  border: 1px solid var(--ml-border);
 }
 
 .ml-scroll {
@@ -251,11 +249,11 @@ const render = (source: string) =>
 }
 
 .ml-message + .ml-message {
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-top: 1px solid var(--ml-border-soft);
 }
 
 .ml-message:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
+  background-color: var(--ml-raise);
 }
 
 .ml-avatar {
@@ -266,11 +264,12 @@ const render = (source: string) =>
 .ml-author {
   font-weight: 600;
   font-size: 0.95rem;
+  color: var(--ml-text);
 }
 
 .ml-time {
   font-size: 0.75rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 
 .ml-content {
@@ -278,6 +277,7 @@ const render = (source: string) =>
   line-height: 1.45;
   white-space: normal;
   overflow-wrap: anywhere;
+  color: var(--ml-dim);
 }
 
 .ml-images {
@@ -305,7 +305,7 @@ const render = (source: string) =>
   padding: 8px 10px;
   border-left: 3px solid #5865f2;
   border-radius: 4px;
-  background-color: rgba(var(--v-theme-on-surface), 0.05);
+  background-color: var(--ml-well);
 }
 
 .ml-embed-title {
@@ -315,7 +315,7 @@ const render = (source: string) =>
 }
 
 .ml-embed-title a {
-  color: rgb(var(--v-theme-primary));
+  color: var(--ml-accent-text);
 }
 
 .ml-embed-fields {
@@ -353,7 +353,7 @@ const render = (source: string) =>
 
 /* The rendered HTML comes from v-html, so scoped rules need :deep(). */
 .ml-content :deep(a) {
-  color: rgb(var(--v-theme-primary));
+  color: var(--ml-accent-text);
   text-decoration: none;
 }
 
@@ -374,8 +374,8 @@ const render = (source: string) =>
 .ml-content :deep(.ml-md-quote) {
   margin: 4px 0;
   padding: 2px 10px;
-  border-left: 3px solid rgba(var(--v-theme-on-surface), 0.3);
-  color: var(--color-secondary-text);
+  border-left: 3px solid var(--ml-border);
+  color: var(--ml-dim);
 }
 
 .ml-content :deep(.ml-md-list) {
@@ -387,7 +387,7 @@ const render = (source: string) =>
   margin: 4px 0;
   padding: 8px 10px;
   border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.35);
+  background-color: var(--ml-well);
   overflow-x: auto;
   font-family: 'Roboto Mono', monospace;
   font-size: 0.82rem;
@@ -396,7 +396,7 @@ const render = (source: string) =>
 .ml-content :deep(.ml-md-code) {
   padding: 1px 4px;
   border-radius: 3px;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: var(--ml-well);
   font-family: 'Roboto Mono', monospace;
   font-size: 0.82rem;
 }
@@ -411,29 +411,29 @@ const render = (source: string) =>
 .ml-content :deep(.ml-md-mention) {
   padding: 0 3px;
   border-radius: 3px;
-  background-color: rgba(var(--v-theme-primary), 0.2);
-  color: rgb(var(--v-theme-primary));
+  background-color: rgba(232, 163, 46, 0.15);
+  color: var(--ml-accent-text);
   font-weight: 500;
 }
 
 .ml-content :deep(.ml-md-spoiler) {
   padding: 0 3px;
   border-radius: 3px;
-  background-color: rgba(var(--v-theme-on-surface), 0.85);
+  background-color: var(--ml-border);
   color: transparent;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .ml-content :deep(.ml-md-spoiler:hover) {
-  background-color: rgba(var(--v-theme-on-surface), 0.2);
+  background-color: var(--ml-border-soft);
   color: inherit;
 }
 
 .ml-content :deep(.ml-md-timestamp) {
   padding: 0 2px;
   border-radius: 3px;
-  background-color: rgba(var(--v-theme-on-surface), 0.1);
+  background-color: var(--ml-well);
   font-size: 0.85em;
 }
 </style>

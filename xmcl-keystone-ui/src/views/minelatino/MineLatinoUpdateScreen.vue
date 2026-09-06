@@ -163,9 +163,9 @@ onMounted(() => {
   flex-direction: column;
   gap: 18px;
   padding: 24px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 6%, rgba(var(--v-theme-surface), 0.6));
+  border-radius: var(--ml-radius);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
 }
 
 .ml-update-head {
@@ -175,20 +175,22 @@ onMounted(() => {
 }
 
 .ml-update-icon {
-  color: var(--ml-accent);
+  color: var(--ml-accent-text);
   flex-grow: 0;
   flex-shrink: 0;
 }
 
 .ml-update-title {
-  font-size: 1.35rem;
+  font-family: var(--ml-font-head);
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.15;
+  color: var(--ml-text);
 }
 
 .ml-update-subtitle {
   font-size: 0.9rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-dim);
   line-height: 1.35;
 }
 
@@ -200,11 +202,12 @@ onMounted(() => {
 }
 
 .ml-update-version-label {
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 
 .ml-update-version-value {
   font-weight: 700;
+  color: var(--ml-text);
 }
 
 .ml-update-status {
@@ -212,23 +215,28 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--ml-radius-sm);
   font-size: 0.95rem;
-  background-color: rgba(var(--v-theme-on-surface), 0.05);
+  color: var(--ml-dim);
+  background-color: var(--ml-well);
+  border: 1px solid var(--ml-border-soft);
 }
 
 .ml-update-notes {
   max-height: 40vh;
   overflow: auto;
   padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: var(--ml-radius-sm);
+  border: 1px solid var(--ml-border-soft);
+  background-color: var(--ml-well);
 }
 
 .ml-update-notes-title {
+  font-family: var(--ml-font-head);
   font-weight: 700;
   font-size: 0.9rem;
   margin-bottom: 6px;
+  color: var(--ml-text);
 }
 
 .ml-update-actions {

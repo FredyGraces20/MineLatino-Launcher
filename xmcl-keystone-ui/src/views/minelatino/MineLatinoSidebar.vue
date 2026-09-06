@@ -221,8 +221,8 @@ async function onLogout() {
   width: 224px;
   flex-grow: 0;
   flex-shrink: 0;
-  border-right: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 55%, transparent);
+  border-right: 1px solid var(--ml-border);
+  background-color: var(--ml-panel);
 }
 
 .ml-side-item {
@@ -231,28 +231,25 @@ async function onLogout() {
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border-radius: 10px;
-  color: inherit;
+  border-radius: var(--ml-radius-sm);
+  color: var(--ml-dim);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+  background: none;
   transition:
-    background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+    background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
 .ml-side-item:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.06);
-  transform: translateX(3px);
-  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+  background-color: var(--ml-raise);
+  color: var(--ml-text);
 }
 
-/* Icon tile: gives every row the same visual anchor, and lights up with the
-   accent when its row is the active destination. */
+/* Icon tile: flat dark well, accent when active. */
 .ml-side-icon {
   display: flex;
   align-items: center;
@@ -260,21 +257,19 @@ async function onLogout() {
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background-color: rgba(var(--v-theme-on-surface), 0.07);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background-color: var(--ml-well);
   flex-grow: 0;
   flex-shrink: 0;
-  transition: background-color 0.18s ease, box-shadow 0.2s ease;
+  transition: background-color 0.16s ease;
 }
 
 .ml-side-item:hover .ml-side-icon {
-  background-color: rgba(var(--v-theme-on-surface), 0.13);
+  background-color: var(--ml-border-soft);
 }
 
-/* Shorter perspective than the cards: the row is only ~36px tall, so it needs
-   a nearer viewpoint for the tilt to be visible at all. */
 .ml-side-item:active {
-  transform: perspective(600px) rotateX(7deg) translateX(1px) scale(0.98);
+  transform: none;
+  filter: brightness(0.95);
 }
 
 .ml-side-item:focus-visible {
@@ -283,16 +278,12 @@ async function onLogout() {
 }
 
 .ml-side-item--active {
-  background-color: color-mix(in srgb, var(--ml-accent) 16%, transparent);
-  border-color: color-mix(in srgb, var(--ml-accent) 40%, transparent);
-  color: var(--ml-accent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 8px 20px -14px color-mix(in srgb, var(--ml-accent) 90%, transparent);
+  background-color: rgba(232, 163, 46, 0.12);
+  border-color: var(--ml-accent-border);
+  color: var(--ml-accent-text);
 }
 
-/* Accent tick in the rail's gutter, so the active destination reads at a
-   glance even when the label is scanned past. */
+/* Accent tick in the rail's gutter. */
 .ml-side-item--active::before {
   content: '';
   position: absolute;
@@ -303,18 +294,15 @@ async function onLogout() {
   transform: translateY(-50%);
   border-radius: 999px;
   background-color: var(--ml-accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--ml-accent) 70%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ml-accent) 60%, transparent);
 }
 
 .ml-side-item--active .ml-side-icon {
-  background-color: color-mix(in srgb, var(--ml-accent) 22%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 4px 10px -6px color-mix(in srgb, var(--ml-accent) 80%, transparent);
+  background-color: color-mix(in srgb, var(--ml-accent) 18%, var(--ml-well));
 }
 
 .ml-side-item--danger:hover {
-  background-color: color-mix(in srgb, rgb(var(--v-theme-error)) 14%, transparent);
+  background-color: color-mix(in srgb, rgb(var(--v-theme-error)) 12%, transparent);
   color: rgb(var(--v-theme-error));
 }
 
@@ -342,32 +330,31 @@ async function onLogout() {
   flex-shrink: 0;
 }
 
-/* Hairline that sets the session actions apart from the content above. */
+/* Hairline separator. */
 .ml-side-sep {
   height: 1px;
   margin: 2px 6px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(var(--v-theme-on-surface), 0.16),
-    transparent
-  );
+  background-color: var(--ml-border-soft);
 }
 
 .ml-side-title {
   padding: 0 10px 2px;
-  font-size: 0.7rem;
+  font-family: var(--ml-font-head);
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
+  border-bottom: 2px solid var(--ml-accent-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
 }
 
 .ml-side-empty {
   padding: 6px 10px;
   font-size: 0.78rem;
   line-height: 1.4;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 
 .ml-side-profile {
@@ -375,26 +362,22 @@ async function onLogout() {
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: var(--ml-radius-sm);
   border: 1px solid transparent;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color 0.18s ease, border-color 0.18s ease,
-    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
 }
 
 .ml-side-profile:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.06);
-  transform: translateX(3px);
-  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.7);
+  background-color: var(--ml-raise);
 }
 
 .ml-side-profile:active {
-  transform: translateX(1px) scale(0.98);
+  filter: brightness(0.95);
 }
 
 .ml-side-profile:focus-visible {
@@ -403,9 +386,8 @@ async function onLogout() {
 }
 
 .ml-side-profile--active {
-  border-color: color-mix(in srgb, var(--ml-accent) 45%, transparent);
-  background-color: color-mix(in srgb, var(--ml-accent) 12%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-color: var(--ml-accent-border);
+  background-color: rgba(232, 163, 46, 0.08);
 }
 
 .ml-side-profile-icon {
@@ -415,10 +397,8 @@ async function onLogout() {
   object-fit: cover;
   flex-grow: 0;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
-  box-shadow:
-    0 0 0 1px rgba(var(--v-theme-on-surface), 0.12),
-    0 6px 14px -10px rgba(0, 0, 0, 0.8);
+  background-color: var(--ml-well);
+  box-shadow: 0 0 0 1px var(--ml-border-soft);
 }
 
 .ml-side-profile-text {
@@ -436,6 +416,6 @@ async function onLogout() {
 
 .ml-side-profile-time {
   font-size: 0.72rem;
-  color: var(--color-secondary-text);
+  color: var(--ml-faint);
 }
 </style>

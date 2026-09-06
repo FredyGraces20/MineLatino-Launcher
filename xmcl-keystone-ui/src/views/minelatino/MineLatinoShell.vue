@@ -51,6 +51,7 @@ import bundledLogo from '@/assets/minelatino-logo.png'
 import { kMineLatino, useMineLatino } from '@/composables/minelatino'
 import MineLatinoProfilePanel from './MineLatinoProfilePanel.vue'
 import MineLatinoSidebar from './MineLatinoSidebar.vue'
+import './minelatino-theme.css'
 
 const { t } = useI18n()
 
@@ -78,41 +79,43 @@ const accentStyle = computed(() => accentColor.value ? { '--ml-accent': accentCo
 }
 
 .ml-topbar {
-  height: 56px;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
+  height: 52px;
+  border-bottom: 2px solid var(--ml-accent-border);
+  background-color: var(--ml-panel);
 }
 
 .ml-topbar-logo {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   object-fit: cover;
   flex-grow: 0;
   flex-shrink: 0;
-  background-color: rgba(var(--v-theme-on-surface), 0.08);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ml-accent) 35%, transparent);
+  background-color: var(--ml-well);
+  box-shadow: 0 0 0 1px var(--ml-border);
 }
 
 .ml-topbar-name {
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
+  font-family: var(--ml-font-head);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ml-topbar-tagline {
-  font-size: 0.8rem;
-  color: var(--color-secondary-text);
+  font-size: 0.78rem;
+  color: var(--ml-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ml-body {
-  /* The rails keep their own scroll; the middle column scrolls on its own. */
-  background-color: rgba(var(--v-theme-on-surface), 0.02);
+  background-color: var(--ml-bg);
 }
 </style>
