@@ -95,7 +95,7 @@ export function useAuthorityItems(authorities: Ref<AuthorityMetadata[] | undefin
     if (!authorities.value) return []
     const result = [] as AuthorityItem[]
     for (const v of authorities.value) {
-      if (!thirdParty.value && v.authority !== AUTHORITY_MICROSOFT) continue
+      if (!thirdParty.value && v.authority !== AUTHORITY_MICROSOFT && v.authority !== AUTHORITY_DEV) continue
       // MineLatino: the operator decides whether premium and non-premium logins
       // are offered at all. Other authorities are left to the rules above.
       if (!isAuthorityAllowed(v.authority)) continue
