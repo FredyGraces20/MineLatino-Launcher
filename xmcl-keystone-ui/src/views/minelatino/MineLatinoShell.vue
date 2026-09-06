@@ -15,7 +15,7 @@
 <template>
   <div
     class="ml-shell flex max-h-full min-h-0 flex-1 flex-col"
-    :style="[accentStyle, { scrollbarGutter: 'stable' }]"
+    :style="{ scrollbarGutter: 'stable' }"
   >
     <!-- Brand first: logo and name pinned to the top-left corner. -->
     <header class="ml-topbar flex flex-grow-0 flex-shrink-0 items-center gap-3 px-4">
@@ -36,7 +36,7 @@
 
       <main class="visible-scroll min-w-0 flex-1 overflow-y-auto">
         <router-view v-slot="{ Component }">
-          <transition name="fade-transition" mode="out-in">
+          <transition name="ml-page" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
@@ -57,25 +57,19 @@ const { t } = useI18n()
 
 const state = useMineLatino()
 // One subscription shared by the whole subtree (see the comment above).
-provide(kMineLatino, state)
+provide(kMineLatino, { ...state, accentColor: computed(() => '#53dfed') })
 
-const { branding, accentColor } = state
+const { branding } = state
 
 const brandName = computed(() => branding.value?.name || t('MineLatinoPlay.startTitle'))
 const logoSrc = computed(() => branding.value?.logoUrl || bundledLogo)
 
-/**
- * The accent colour comes from the backend so rebranding needs no new
- * installer. Exposed as a CSS variable rather than written into the Vuetify
- * theme, which would leak into every other view.
- */
-const accentStyle = computed(() => accentColor.value ? { '--ml-accent': accentColor.value } : {})
 </script>
 
 <style scoped>
 .ml-shell {
   /* Falls back to the theme primary when the backend sends no accent colour. */
-  --ml-accent: rgb(var(--v-theme-primary));
+  --ml-accent: #53dfed;
 }
 
 .ml-topbar {

@@ -11,8 +11,20 @@
 <template>
   <nav
     class="ml-side visible-scroll flex flex-col gap-4 overflow-y-auto p-3"
+    :class="{ 'ml-side--collapsed': collapsed }"
     :aria-label="t('MineLatinoPlay.startTitle')"
   >
+    <button
+      type="button"
+      class="ml-side-toggle ml-side-item"
+      :aria-label="t('MineLatinoShell.navigation')"
+      :title="t('MineLatinoShell.navigation')"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+    >
+      <span class="ml-side-icon"><v-icon size="18" aria-hidden="true">{{ collapsed ? 'chevron_right' : 'chevron_left' }}</v-icon></span>
+      <span class="ml-side-label">{{ t('MineLatinoShell.navigation') }}</span>
+    </button>
     <!-- The five content destinations. -->
     <div class="flex flex-col gap-1">
       <div class="ml-side-title">
@@ -24,6 +36,9 @@
         class="ml-side-item"
         :class="{ 'ml-side-item--active': isActive(item.to) }"
         :to="item.to"
+        :title="t(`MineLatinoNav.${item.key}`)"
+        :aria-label="t(`MineLatinoNav.${item.key}`)"
+        :aria-current="isActive(item.to) ? 'page' : undefined"
         :data-testid="`minelatino-nav-${item.key}`"
       >
         <span class="ml-side-icon">
@@ -76,6 +91,8 @@
         type="button"
         class="ml-side-item"
         data-testid="minelatino-options"
+        :title="t('MineLatinoShell.options')"
+        :aria-label="t('MineLatinoShell.options')"
         @click="router.push('/setting')"
       >
         <span class="ml-side-icon">
@@ -90,6 +107,8 @@
         class="ml-side-item"
         to="/minelatino/actualizar"
         data-testid="minelatino-update"
+        :title="t('MineLatinoNav.actualizar')"
+        :aria-label="t('MineLatinoNav.actualizar')"
       >
         <span class="ml-side-icon">
           <v-icon size="18" aria-hidden="true">
@@ -110,6 +129,8 @@
         class="ml-side-item ml-side-item--danger"
         :disabled="!isSignedIn"
         data-testid="minelatino-logout"
+        :title="t('MineLatinoShell.logout')"
+        :aria-label="t('MineLatinoShell.logout')"
         @click="logoutDialog = true"
       >
         <span class="ml-side-icon">
@@ -135,6 +156,7 @@
 </template>
 <script lang="ts" setup>
 import SimpleDialog from '@/components/SimpleDialog.vue'
+import { useLocalStorage } from '@vueuse/core'
 import { useService } from '@/composables'
 import { kInstances } from '@/composables/instances'
 import { useUpdateSettings } from '@/composables/setting'
@@ -147,6 +169,7 @@ import type { UserProfile } from '@xmcl/runtime-api'
 import type { Instance } from '@xmcl/instance'
 
 const { t } = useI18n()
+const collapsed = useLocalStorage('minelatino.sidebar.collapsed', false)
 const router = useRouter()
 const route = useRoute()
 const { instances, selectedInstance } = injection(kInstances)

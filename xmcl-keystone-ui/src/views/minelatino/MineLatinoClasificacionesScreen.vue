@@ -139,7 +139,7 @@
             </div>
 
             <!-- Error -->
-            <div v-else-if="playtimeError && playtimeEntries.length === 0" class="ml-pt-state">
+            <div v-else-if="playtimeErrorState && playtimeEntries.length === 0" class="ml-pt-state">
               <v-icon size="36" color="grey" aria-hidden="true"> wifi_off </v-icon>
               <span class="ml-pt-state-text">{{ t('MineLatinoClasificaciones.playtimeError') }}</span>
               <v-btn

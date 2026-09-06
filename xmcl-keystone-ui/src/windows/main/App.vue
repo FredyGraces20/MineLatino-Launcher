@@ -1,5 +1,5 @@
 <template>
-  <v-app v-if="!showSetup" class="h-full max-h-screen overflow-hidden select-none" :class="{ 'dark': isDark }">
+  <v-app v-if="!showSetup" class="h-full max-h-screen overflow-hidden select-none" :theme="mineLatinoShell ? 'dark' : undefined" :class="{ 'dark': isDark || mineLatinoShell, 'ml-premium': mineLatinoShell }">
     <AppBackground />
     <div class="w-full h-full absolute left-0 header-overlay" :style="{
       height: headerHeight + 70 + 'px',
@@ -40,7 +40,7 @@
     <AppSideBarGroupSettingDialog :default-color="defaultColor" />
     <AppGamepadPrompt />
   </v-app>
-  <v-app v-else class="h-full max-h-screen overflow-hidden" :class="{ 'dark': isDark }">
+  <v-app v-else class="h-full max-h-screen overflow-hidden" :theme="mineLatinoShell ? 'dark' : undefined" :class="{ 'dark': isDark || mineLatinoShell, 'ml-premium': mineLatinoShell }">
     <AppSystemBar no-user no-task />
     <div class="app-layout relative flex min-h-0 flex-1 overflow-hidden">
       <Setup @ready="onReady" />
@@ -53,6 +53,7 @@
 
 <script lang=ts setup>
 import '@/assets/common.css'
+import '@/views/minelatino/minelatino-premium.css'
 import AppImageDialog from '@/components/AppImageDialog.vue'
 import AppSharedTooltip from '@/components/AppSharedTooltip.vue'
 import { useAuthProfileImportNotification } from '@/composables/authProfileImport'
@@ -190,6 +191,9 @@ const sidebarStyle = computed(() => sidebarSettings.style.value)
 // the shell's own routes the in-screen header already carries a back button.
 const mineLatinoConfig = useMineLatinoConfig()
 const mineLatinoShell = computed(() => isMineLatinoConfigured(mineLatinoConfig.value))
+// Keep the branded palette available to teleported menus and dialogs too.
+watchEffect(() => document.documentElement.classList.toggle('ml-premium-theme', mineLatinoShell.value))
+onUnmounted(() => document.documentElement.classList.remove('ml-premium-theme'))
 const showSystemBack = computed(() => {
   if (mineLatinoShell.value) return !route.path.startsWith('/minelatino')
   return sidebarStyle.value === 'notch'
