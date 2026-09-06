@@ -202,7 +202,7 @@
               :skin="skinUrl"
               :name="playerName"
               :width="360"
-              :height="520"
+              :height="620"
               :zoom="0.9"
               animation="idle"
             />
