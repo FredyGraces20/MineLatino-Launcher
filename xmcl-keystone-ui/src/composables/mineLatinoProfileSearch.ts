@@ -1,8 +1,9 @@
-import { clientModrinthV2 } from '@/util/clients'
-import type { SearchResultHit } from '@xmcl/modrinth'
+import type { SearchResult, SearchResultHit } from '@xmcl/modrinth'
 import { computed, ref, Ref } from 'vue'
+import { getFacatsText } from './modrinth'
 
 const PAGE_SIZE = 20
+const SEARCH_TIMEOUT_MS = 15_000
 
 /**
  * Lightweight Modrinth search scoped to a target Minecraft version + loader.
@@ -10,7 +11,7 @@ const PAGE_SIZE = 20
  * shaders that are compatible with the profile being built.
  */
 export function useMineLatinoProfileSearch(
-  projectType: Ref<'mod' | 'resourcepack' | 'shader'>,
+  projectType: Ref<'mod' | 'resourcepacks' | 'shaders'>,
   gameVersion: Ref<string>,
   loader: Ref<string>,
 ) {
@@ -23,47 +24,62 @@ export function useMineLatinoProfileSearch(
   const hasMore = ref(true)
   const total = ref(0)
 
-  let currentController: AbortController | undefined
+  let requestId = 0
 
-  function buildFacets() {
-    const facets: string[][] = []
-    if (projectType.value) {
-      facets.push([`project_type:${projectType.value}`])
-    }
-    if (gameVersion.value) {
-      facets.push([`versions:${gameVersion.value}`])
-    }
-    if (loader.value) {
-      facets.push([`categories:${loader.value}`])
-    }
-    facets.push(['client_side:optional', 'client_side:required'], ['server_side:optional', 'server_side:unsupported'])
-    if (facets.length > 0) {
-      return '[' + facets.map(v => '[' + v.map(v => JSON.stringify(v)).join(',') + ']').join(',') + ']'
-    }
-    return undefined
+  function getType(): string {
+    const v = projectType.value
+    if (v === 'resourcepacks') return 'resourcepack'
+    if (v === 'shaders') return 'shader'
+    return 'mod'
   }
 
   async function search(reset = true) {
+    const myId = ++requestId
+
     if (reset) {
       offset.value = 0
       results.value = []
       hasMore.value = true
     }
-    if (currentController) {
-      currentController.abort()
-    }
-    currentController = new AbortController()
     loading.value = true
     error.value = false
+
     try {
-      const facets = buildFacets()
-      const result = await clientModrinthV2.searchProjects({
-        query: query.value,
-        limit: PAGE_SIZE,
-        offset: offset.value,
-        index: sortBy.value,
-        facets,
-      }, currentController.signal)
+      const facetsText = getFacatsText(
+        gameVersion.value,
+        '',
+        [],
+        loader.value ? [loader.value] : [],
+        getType(),
+        'client',
+      )
+
+      const url = new URL('https://api.modrinth.com/v2/search')
+      url.searchParams.set('query', query.value || '')
+      url.searchParams.set('limit', String(PAGE_SIZE))
+      url.searchParams.set('offset', String(offset.value))
+      url.searchParams.set('index', sortBy.value || (query.value ? 'relevance' : 'downloads'))
+      if (facetsText) {
+        url.searchParams.set('facets', facetsText)
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS)
+
+      let result: SearchResult
+      try {
+        const response = await fetch(url.toString(), { signal: controller.signal })
+        if (!response.ok) {
+          throw new Error(`Modrinth search failed: ${response.status}`)
+        }
+        result = await response.json() as SearchResult
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      // If another search was triggered while we were waiting, discard this result
+      if (requestId !== myId) return
+
       if (reset) {
         results.value = result.hits
       } else {
@@ -72,12 +88,16 @@ export function useMineLatinoProfileSearch(
       total.value = result.total_hits
       offset.value += result.hits.length
       hasMore.value = offset.value < result.total_hits
-    } catch {
+    } catch (e) {
+      if (requestId !== myId) return
+      console.warn('[MineLatinoProfileSearch] search error', e)
       if (results.value.length === 0) {
         error.value = true
       }
     } finally {
-      loading.value = false
+      if (requestId === myId) {
+        loading.value = false
+      }
     }
   }
 

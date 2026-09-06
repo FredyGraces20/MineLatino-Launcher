@@ -367,12 +367,12 @@ const modSearch = useMineLatinoProfileSearch(
   computed(() => selectedLoader.value || ''),
 )
 const rpSearch = useMineLatinoProfileSearch(
-  ref('resourcepack'),
+  ref('resourcepacks'),
   selectedVersion as any,
   computed(() => selectedLoader.value || ''),
 )
 const shaderSearch = useMineLatinoProfileSearch(
-  ref('shader'),
+  ref('shaders'),
   selectedVersion as any,
   computed(() => selectedLoader.value || ''),
 )
