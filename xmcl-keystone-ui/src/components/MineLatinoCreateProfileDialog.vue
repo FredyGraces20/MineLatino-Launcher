@@ -179,9 +179,9 @@
                 >
                 <v-icon v-else size="40" color="grey" class="flex-shrink-0">inventory_2</v-icon>
                 <div class="min-w-0 flex-grow">
-                  <div class="text-sm font-medium truncate" style="color: var(--ml-text)">{{ hit.title }}</div>
-                  <div class="text-xs truncate" style="color: var(--ml-dim)">{{ hit.author }} &middot; {{ formatDownloads(hit.downloads) }} downloads</div>
-                  <div class="text-xs truncate mt-0.5" style="color: var(--ml-dim)">{{ hit.description }}</div>
+                  <div class="text-sm font-medium truncate" style="color: var(--ml-text)">{{ hit.title || '' }}</div>
+                  <div class="text-xs truncate" style="color: var(--ml-dim)">{{ hit.author || '' }}<template v-if="hit.downloads != null"> &middot; {{ formatDownloads(hit.downloads) }} downloads</template></div>
+                  <div class="text-xs truncate mt-0.5" style="color: var(--ml-dim)">{{ hit.description || '' }}</div>
                 </div>
                 <v-btn
                   v-if="!isQueued(hit.project_id)"
@@ -401,7 +401,8 @@ function unqueueItem(id: string) {
   queuedShaders.value = queuedShaders.value.filter(q => q.projectId !== id)
 }
 
-function formatDownloads(n: number): string {
+function formatDownloads(n: number | undefined | null): string {
+  if (n == null) return ''
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
