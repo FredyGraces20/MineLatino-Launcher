@@ -92,7 +92,40 @@ MineLatinoNav:
   anuncios: Announcements
   clasificaciones: Leaderboards
   jugar: Play
+  perfiles: Profiles
   tienda: Store
+MineLatinoProfiles:
+  title: Profiles
+  subtitle: Manage your Minecraft profiles
+  create: Create profile
+  empty: No profiles yet. Create one to get started!
+MineLatinoCreateProfile:
+  title: Create profile
+  stepConfig: Basic configuration
+  stepContent: Mods, textures and shaders
+  stepConfirm: Confirm and create
+  name: Profile name
+  mcVersion: Minecraft version
+  loader: Mod loader
+  tabs:
+    mods: Mods
+    resourcepacks: Resource Packs
+    shaders: Shaders
+  searchPlaceholder: Search on Modrinth…
+  searchError: Could not load content.
+  searchEmpty: No results found.
+  install: Add
+  loadMore: Load more
+  summary: Profile summary
+  contentSummary: Content to install
+  creating: Creating profile and installing content…
+  create: Create
+  cancel: Cancel
+  next: Next
+  sortRelevance: Relevance
+  sortDownloads: Downloads
+  sortNewest: Newest
+  sortUpdated: Updated
 MineLatinoPlay:
   addVersion: Add version
   copied: Copied

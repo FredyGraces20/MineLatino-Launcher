@@ -170,6 +170,10 @@ export const router = createRouter({
           component: () => import('@/views/minelatino/MineLatinoClasificacionesScreen.vue'),
         },
         {
+          path: 'perfiles',
+          component: () => import('@/views/minelatino/MineLatinoProfilesScreen.vue'),
+        },
+        {
           path: 'actualizar',
           component: () => import('@/views/minelatino/MineLatinoUpdateScreen.vue'),
         },

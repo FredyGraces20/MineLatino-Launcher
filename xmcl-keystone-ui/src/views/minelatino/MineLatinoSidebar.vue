@@ -178,6 +178,7 @@ const { removeUser } = useService(UserServiceKey)
 
 const nav = [
   { key: 'jugar', icon: 'play_arrow', to: '/minelatino/jugar' },
+  { key: 'perfiles', icon: 'dashboard_customize', to: '/minelatino/perfiles' },
   { key: 'anuncios', icon: 'campaign', to: '/minelatino/anuncios' },
   { key: 'actualizaciones', icon: 'new_releases', to: '/minelatino/actualizaciones' },
   { key: 'tienda', icon: 'storefront', to: '/minelatino/tienda' },
