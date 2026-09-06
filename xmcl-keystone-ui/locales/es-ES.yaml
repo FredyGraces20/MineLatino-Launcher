@@ -68,6 +68,30 @@ MineLatinoHome:
   updates: Actualizaciones
   updatesEmpty: Todavía no hay publicaciones.
   updatesError: No se pudieron cargar las publicaciones.
+MineLatinoNav:
+  actualizaciones: Actualizaciones
+  actualizacionesHint: Cambios y novedades del servidor.
+  actualizar: Actualizar
+  actualizarHint: Descarga la última versión del launcher sin bajarlo de nuevo.
+  anuncios: Anuncios
+  anunciosHint: Lo que está pasando en la comunidad.
+  jugar: Jugar
+  jugarHint: Elige tu perfil y entra al servidor.
+  tienda: Tienda
+  tiendaHint: Rangos, cosméticos y más.
+MineLatinoPlay:
+  account: Cuenta
+  addVersion: Añadir versión
+  back: Atrás
+  chooseProfile: Elige tu perfil
+  entrar: Entrar al servidor
+  login: Iniciar sesión
+  mods: Mods
+  noProfile: Todavía no tienes ningún perfil. Crea uno abajo para empezar a jugar.
+  resourcePacks: Paquetes de recursos
+  settings: Ajustes
+  shaderPacks: Paquetes de shaders
+  startTitle: MineLatino
 MineLatinoPreset:
   create: Crear perfil
   created: Perfil {name} creado
@@ -85,6 +109,20 @@ MineLatinoRequiredMods:
   openInStore: Buscar en Modrinth
   playAnyway: Jugar de todos modos
   title: Faltan mods requeridos
+MineLatinoUpdate:
+  available: Nueva versión disponible
+  check: Buscar actualizaciones
+  checking: Buscando…
+  currentVersion: Versión actual
+  downloadUpdate: Descargar y actualizar
+  downloading: Descargando actualización…
+  installRestart: Reiniciar para instalar
+  latest: Ya tienes la última versión.
+  openRelease: Ver en GitHub
+  ready: Descargada, lista para instalar
+  releaseNotes: Novedades
+  subtitle: Se actualiza al momento, sin descargar el launcher de nuevo.
+  title: Actualización del launcher
 SettingMigrationDialog:
   selectRootDirectory: Seleccionar Directorio Raíz
 askAICrash:

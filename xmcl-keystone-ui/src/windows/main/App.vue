@@ -6,13 +6,15 @@
       'background-image': `linear-gradient(${appBarColor} 0%, color-mix(in srgb, ${appBarColor}, transparent) 65%, transparent 100%)`
     }">
     </div>
-    <AppSystemBar :back="sidebarStyle === 'notch'" />
+    <AppSystemBar :back="showSystemBack" />
     <div
       class="app-layout flex-grow relative flex overflow-auto"
       :class="[layoutClasses, { 'workspace-side-panel-attached': hasAttachedWorkspacePanel }]"
     >
-      <AppSideBarClassic v-if="sidebarStyle === 'classic'" />
-      <AppSideBarNotch v-else />
+      <template v-if="!mineLatinoShell">
+        <AppSideBarClassic v-if="sidebarStyle === 'classic'" />
+        <AppSideBarNotch v-else />
+      </template>
       <main class="relative flex max-h-full flex-1 flex-col overflow-auto" :class="mainClasses">
         <router-view v-slot="{ Component }">
           <transition name="fade-transition" mode="out-in">
@@ -70,6 +72,7 @@ import { kTheme } from '@/composables/theme'
 import { kTutorial } from '@/composables/tutorial'
 import { kInFocusMode } from '@/composables/uiLayout'
 import { kSidebarSettings, useInjectSidebarSettings, useSidebarSettings } from '@/composables/sidebarSettings'
+import { isMineLatinoConfigured, useMineLatinoConfig } from '@/composables/minelatino'
 import { basename } from '@/util/basename'
 import { injection } from '@/util/inject'
 import AppAddInstanceDialog from '@/views/AppAddInstanceDialog.vue'
@@ -179,6 +182,18 @@ const sidebarSettings = useSidebarSettings()
 provide(kSidebarSettings, sidebarSettings)
 const sidebarPosition = computed(() => sidebarSettings.position.value)
 const sidebarStyle = computed(() => sidebarSettings.style.value)
+
+// A branded MineLatino build replaces the XMCL sidebar + dashboard with the
+// big-tile shell (`/minelatino`), so the navigation rail is hidden entirely and
+// the system bar's back button stands in for it on the reused XMCL screens
+// (mods / resource packs / shaders / settings / account) that Jugar opens. On
+// the shell's own routes the in-screen header already carries a back button.
+const mineLatinoConfig = useMineLatinoConfig()
+const mineLatinoShell = computed(() => isMineLatinoConfigured(mineLatinoConfig.value))
+const showSystemBack = computed(() => {
+  if (mineLatinoShell.value) return !route.path.startsWith('/minelatino')
+  return sidebarStyle.value === 'notch'
+})
 
 const layoutClasses = computed(() => ({
   'flex-row': sidebarPosition.value === 'left' || sidebarPosition.value === 'right',

@@ -6,6 +6,8 @@ import HomeActions from '@/views/HomeActions.vue'
 import HomeExtension from '@/views/HomeExtension.vue'
 import HomeLayout from '@/views/HomeLayout.vue'
 import Me from '@/views/Me.vue'
+import MineLatinoShell from '@/views/minelatino/MineLatinoShell.vue'
+import MineLatinoStart from '@/views/minelatino/MineLatinoStart.vue'
 import Mod from '@/views/Mod.vue'
 import ModActions from '@/views/ModActions.vue'
 import ModExtension from '@/views/ModExtension.vue'
@@ -131,6 +133,42 @@ export const router = createRouter({
       path: '/multiplayer',
       component: MultiplayerDesktop,
       meta: { workspaceSidePanel: true },
+    },
+    {
+      // Branded MineLatino interface: a big-tile shell with five destinations
+      // (Jugar / Tienda / Anuncios / Actualizaciones / Actualizar), each its own
+      // full screen. `Context.ts` routes here on startup for a configured build;
+      // an unbranded build never enters it and keeps the stock XMCL interface.
+      // The reused XMCL instance screens (`/mods`, `/resourcepacks`,
+      // `/shaderpacks`), `/setting` and `/me` are reached from Jugar.
+      path: '/minelatino',
+      component: MineLatinoShell,
+      children: [
+        {
+          path: '',
+          component: MineLatinoStart,
+        },
+        {
+          path: 'jugar',
+          component: () => import('@/views/minelatino/MineLatinoPlay.vue'),
+        },
+        {
+          path: 'tienda',
+          component: () => import('@/views/minelatino/MineLatinoStoreScreen.vue'),
+        },
+        {
+          path: 'anuncios',
+          component: () => import('@/views/minelatino/MineLatinoNewsScreen.vue'),
+        },
+        {
+          path: 'actualizaciones',
+          component: () => import('@/views/minelatino/MineLatinoUpdatesScreen.vue'),
+        },
+        {
+          path: 'actualizar',
+          component: () => import('@/views/minelatino/MineLatinoUpdateScreen.vue'),
+        },
+      ],
     },
   ],
 })

@@ -36,6 +36,27 @@ const EMPTY_UPDATES: MineLatinoUpdatesResult = {
 const STORE_WINDOW_ID = 'minelatino-store'
 
 /**
+ * Whether a config carries anything worth the dedicated MineLatino surfaces
+ * (hub, store, feeds).
+ *
+ * Shared by the home hub's own visibility and the first-run routing decision in
+ * `windows/main/Context.ts`, so the two can never disagree: a launcher that
+ * routes to the hub must also render it, and one that hides the hub must fall
+ * back to the stock instances page. The bundled `FALLBACK_CONFIG` already
+ * satisfies this (store url + server host + updates feed), so a branded build
+ * shows the hub even before the backend is reached, while a stripped config
+ * keeps the upstream `/me` experience.
+ */
+export function isMineLatinoConfigured(config?: MineLatinoConfig): boolean {
+  if (!config) return false
+  return !!config.store.url
+    || config.news.enabled
+    || config.updates.enabled
+    || config.links.length > 0
+    || !!config.server.host
+}
+
+/**
  * Subscribe to a typed service event for the lifetime of the calling
  * component. Detaching on unmount keeps zombie listeners from piling up while
  * the player navigates away from the home screen.
@@ -329,21 +350,10 @@ export function useMineLatino() {
 
   /**
    * Whether the backend handed over anything worth a dedicated home section.
-   *
-   * The bundled fallback config is deliberately inert (no host, no store, both
-   * feeds disabled), so a launcher that has never reached a MineLatino backend
-   * keeps rendering the stock XMCL home instead of an empty branded shell
-   * around it.
+   * Delegates to `isMineLatinoConfigured` so the hub's own visibility and the
+   * first-run routing in `Context.ts` stay in lockstep.
    */
-  const isConfigured = computed(() => {
-    const current = config.value
-    if (!current) return false
-    return !!current.store.url
-      || current.news.enabled
-      || current.updates.enabled
-      || current.links.length > 0
-      || !!current.server.host
-  })
+  const isConfigured = computed(() => isMineLatinoConfigured(config.value))
 
   /**
    * The window title follows the backend's brand name.

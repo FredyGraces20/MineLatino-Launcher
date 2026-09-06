@@ -67,6 +67,30 @@ MineLatinoHome:
   updates: Updates
   updatesEmpty: No publications yet.
   updatesError: The publications could not be loaded.
+MineLatinoNav:
+  actualizaciones: Updates
+  actualizacionesHint: Changelogs and news from the server.
+  actualizar: Update
+  actualizarHint: Get the latest launcher version without downloading it again.
+  anuncios: Announcements
+  anunciosHint: What is happening in the community right now.
+  jugar: Play
+  jugarHint: Pick a profile and join the server.
+  tienda: Store
+  tiendaHint: Ranks, cosmetics and more.
+MineLatinoPlay:
+  account: Account
+  addVersion: Add version
+  back: Back
+  chooseProfile: Choose your profile
+  entrar: Enter the server
+  login: Sign in
+  mods: Mods
+  noProfile: No profile yet. Create one below to start playing.
+  resourcePacks: Resource Packs
+  settings: Settings
+  shaderPacks: Shader Packs
+  startTitle: MineLatino
 MineLatinoPreset:
   create: Create profile
   created: Profile {name} created
@@ -84,6 +108,20 @@ MineLatinoRequiredMods:
   openInStore: Search on Modrinth
   playAnyway: Play anyway
   title: Missing required mods
+MineLatinoUpdate:
+  available: New version available
+  check: Check for updates
+  checking: Checking…
+  currentVersion: Current version
+  downloadUpdate: Download and update
+  downloading: Downloading update…
+  installRestart: Restart to install
+  latest: You are on the latest version.
+  openRelease: View on GitHub
+  ready: Downloaded, ready to install
+  releaseNotes: What is new
+  subtitle: Updates in place, so you never have to download the launcher again.
+  title: Launcher update
 SettingMigrationDialog:
   selectRootDirectory: Select Root Directory
 agent:

@@ -18,12 +18,6 @@
             <v-divider class="divider mx-0" />
           </div>
         </Transition>
-        <!--
-          MineLatino hub (Noticias / Actualizaciones / Tienda / Jugar). Rendered
-          above the stock cards and hidden by itself when no MineLatino backend
-          is configured, so an unbranded build looks exactly like upstream.
-        -->
-        <MineLatinoHome />
         <HomeBedrock v-if="isBedrock" />
         <template v-else>
           <HomeGrid />
@@ -65,7 +59,6 @@ import HomeGrid from './HomeGrid.vue'
 import HomeUpstreamCurseforge from './HomeUpstreamCurseforge.vue'
 import HomeUpstreamFeedTheBeast from './HomeUpstreamFeedTheBeast.vue'
 import HomeUpstreamModrinth from './HomeUpstreamModrinth.vue'
-import MineLatinoHome from './minelatino/MineLatinoHome.vue'
 
 const isFocus = useInFocusMode()
 const { instance } = injection(kInstance)
