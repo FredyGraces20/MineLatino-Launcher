@@ -3,17 +3,16 @@ import { computed, ref, Ref } from 'vue'
 import { getFacatsText } from './modrinth'
 
 const PAGE_SIZE = 20
-const SEARCH_TIMEOUT_MS = 15_000
 
 /**
  * Lightweight Modrinth search scoped to a target Minecraft version + loader.
  * Used by the profile creation dialog to browse mods, resource packs and
  * shaders that are compatible with the profile being built.
  *
- * Uses XMLHttpRequest instead of fetch because the Electron session intercepts
- * all HTTP(S) requests through a protocol handler chain (ElectronSession.ts),
- * and fetch's ReadableStream response body may not properly terminate through
- * that chain. XHR has a simpler request/response model with built-in timeout.
+ * Uses window.netFetch (IPC → main process net.fetch) instead of renderer
+ * fetch/XHR because the Electron session intercepts all HTTP(S) from the
+ * renderer through a protocol handler chain (ElectronSession.ts) whose
+ * ReadableStream response bodies may not properly terminate.
  */
 export function useMineLatinoProfileSearch(
   projectType: Ref<'mod' | 'resourcepacks' | 'shaders'>,
@@ -34,28 +33,6 @@ export function useMineLatinoProfileSearch(
     if (v === 'resourcepacks') return 'resourcepack'
     if (v === 'shaders') return 'shader'
     return 'mod'
-  }
-
-  function doRequest(url: string): Promise<SearchResult> {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
-      xhr.open('GET', url)
-      xhr.timeout = SEARCH_TIMEOUT_MS
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            resolve(JSON.parse(xhr.responseText) as SearchResult)
-          } catch (e) {
-            reject(new Error('Invalid JSON response'))
-          }
-        } else {
-          reject(new Error(`Modrinth search failed: ${xhr.status}`))
-        }
-      }
-      xhr.onerror = () => reject(new Error('Network error'))
-      xhr.ontimeout = () => reject(new Error('Search timed out'))
-      xhr.send()
-    })
   }
 
   async function search(reset = true) {
@@ -87,7 +64,17 @@ export function useMineLatinoProfileSearch(
       }
 
       const url = `https://api.modrinth.com/v2/search?${params.toString()}`
-      const result = await doRequest(url)
+
+      // Use IPC-based fetch that bypasses the session protocol handler
+      const netFetch = (window as any).netFetch
+      if (!netFetch) {
+        throw new Error('netFetch not available')
+      }
+      const response = await netFetch(url)
+      if (!response.ok) {
+        throw new Error(`Modrinth search failed: ${response.status}`)
+      }
+      const result = JSON.parse(response.text) as SearchResult
 
       if (reset) {
         results.value = result.hits

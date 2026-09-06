@@ -1,5 +1,5 @@
 import { ElectronController } from '@/ElectronController'
-import { app, BrowserWindow, clipboard, dialog, FindInPageOptions, ipcMain, nativeImage, screen, systemPreferences } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, FindInPageOptions, ipcMain, nativeImage, net, screen, systemPreferences } from 'electron'
 import { ControllerPlugin } from './plugin'
 import { platform } from 'os'
 import { writeFile } from 'fs-extra'
@@ -180,5 +180,14 @@ export const windowController: ControllerPlugin = function (this: ElectronContro
       }
     }
     return false
+  })
+
+  // Direct HTTP proxy for renderer — bypasses the session protocol handler
+  // chain that intercepts all fetch/XHR from the renderer and can cause
+  // ReadableStream response bodies to hang.
+  ipcMain.handle('net-fetch', async (_event, url: string) => {
+    const response = await net.fetch(url)
+    const text = await response.text()
+    return { status: response.status, ok: response.ok, text }
   })
 }
