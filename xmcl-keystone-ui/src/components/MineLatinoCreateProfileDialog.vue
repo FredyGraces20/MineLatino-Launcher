@@ -309,7 +309,14 @@ const { installFromMarket: installResourcePack } = useService(InstanceResourcePa
 const { installFromMarket: installShader } = useService(InstanceShaderPacksServiceKey)
 const { gameVersions: gameVersionsRaw, isGameVersionValidating: versionsLoading } = injection(kModrinthTags)
 
-const gameVersions = computed(() => gameVersionsRaw.value.map((v: any) => typeof v === 'string' ? v : v.id || v))
+const gameVersions = computed(() => {
+  const raw = gameVersionsRaw.value
+  if (!raw || raw.length === 0) return []
+  return raw
+    .map((v: any) => typeof v === 'string' ? v : v.version || '')
+    .filter((v: string) => v)
+    .reverse()
+})
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void, (e: 'created', path: string): void }>()
