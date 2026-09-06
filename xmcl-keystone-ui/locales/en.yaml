@@ -126,6 +126,7 @@ MineLatinoCreateProfile:
   sortDownloads: Downloads
   sortNewest: Newest
   sortUpdated: Updated
+  toggleSnapshots: Show snapshots and betas
 MineLatinoPlay:
   addVersion: Add version
   copied: Copied

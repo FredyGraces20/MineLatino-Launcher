@@ -78,7 +78,19 @@
             density="comfortable"
             rounded="lg"
             :loading="versionsLoading"
-          />
+          >
+            <template v-slot:append-inner>
+              <v-btn
+                size="x-small"
+                variant="text"
+                :color="showSnapshots ? 'primary' : undefined"
+                @click="showSnapshots = !showSnapshots"
+                :title="t('MineLatinoCreateProfile.toggleSnapshots')"
+              >
+                <v-icon size="16">science</v-icon>
+              </v-btn>
+            </template>
+          </v-autocomplete>
 
           <div>
             <div class="text-xs font-semibold mb-2" style="color: var(--ml-dim)">
@@ -309,13 +321,15 @@ const { installFromMarket: installResourcePack } = useService(InstanceResourcePa
 const { installFromMarket: installShader } = useService(InstanceShaderPacksServiceKey)
 const { gameVersions: gameVersionsRaw, isGameVersionValidating: versionsLoading } = injection(kModrinthTags)
 
+const showSnapshots = ref(false)
+
 const gameVersions = computed(() => {
   const raw = gameVersionsRaw.value
   if (!raw || raw.length === 0) return []
   return raw
+    .filter((v: any) => showSnapshots.value || v.version_type === 'release')
     .map((v: any) => typeof v === 'string' ? v : v.version || '')
     .filter((v: string) => v)
-    .reverse()
 })
 
 const props = defineProps<{ modelValue: boolean }>()
