@@ -347,6 +347,15 @@ onMounted(() => {
 .ml-class-window {
   position: relative;
   min-height: 0;
+  flex: 1 1 0;
+}
+
+.ml-class-window :deep(.v-window__container) {
+  height: 100%;
+}
+
+.ml-class-window :deep(.v-window-item) {
+  height: 100%;
 }
 
 .ml-class-frame {
