@@ -112,6 +112,16 @@
               <v-btn value="neoforge">NeoForge</v-btn>
               <v-btn value="quilt">Quilt</v-btn>
             </v-btn-toggle>
+            <component
+              :is="loaderInputs[selectedLoader]"
+              v-if="selectedLoader && selectedVersion"
+              :key="`${selectedLoader}:${selectedVersion}`"
+              class="mt-3"
+              :minecraft="selectedVersion"
+              :value="loaderVersion"
+              auto-select-latest
+              @input="loaderVersion = $event"
+            />
           </div>
         </div>
 
@@ -135,10 +145,14 @@
             </v-tab>
           </v-tabs>
 
+          <v-alert v-if="contentTab === 'mods' && !selectedLoader" type="info" variant="tonal" density="compact" class="mb-3">
+            {{ t('MineLatinoCreateProfile.requiresLoader') }}
+          </v-alert>
+
           <!-- Search bar -->
           <div class="flex gap-2 mb-3">
             <v-text-field
-              v-model="activeSearch.query.value"
+              v-model="activeSearch.query"
               :placeholder="t('MineLatinoCreateProfile.searchPlaceholder')"
               variant="outlined"
               density="compact"
@@ -147,10 +161,10 @@
               clearable
               prepend-inner-icon="search"
               @keyup.enter="activeSearch.search()"
-              @click:clear="activeSearch.query.value = ''; activeSearch.search()"
+              @click:clear="activeSearch.query = ''"
             />
             <v-select
-              v-model="activeSearch.sortBy.value"
+              v-model="activeSearch.sortBy"
               :items="sortOptions"
               item-title="text"
               item-value="value"
@@ -163,19 +177,27 @@
           </div>
 
           <!-- Results -->
-          <div class="flex-grow overflow-y-auto" style="min-height: 0">
+          <div class="flex-grow visible-scroll overflow-y-auto" style="min-height: 0" aria-live="polite" :aria-busy="activeSearch.loading">
             <div v-if="activeSearch.loading && activeSearch.results.length === 0" class="flex justify-center py-8">
               <v-progress-circular indeterminate size="28" width="3" color="primary" />
             </div>
             <div v-else-if="activeSearch.error && activeSearch.results.length === 0" class="text-center py-8">
               <v-icon size="32" color="grey">wifi_off</v-icon>
               <div class="text-sm mt-2" style="color: var(--ml-dim)">{{ t('MineLatinoCreateProfile.searchError') }}</div>
+              <v-btn class="mt-3" color="primary" variant="tonal" @click="activeSearch.search()">
+                <v-icon start>refresh</v-icon>{{ t('MineLatinoHome.refresh') }}
+              </v-btn>
             </div>
             <div v-else-if="activeSearch.results.length === 0" class="text-center py-8">
               <v-icon size="32" color="grey">search_off</v-icon>
               <div class="text-sm mt-2" style="color: var(--ml-dim)">{{ t('MineLatinoCreateProfile.searchEmpty') }}</div>
             </div>
             <template v-else>
+              <v-progress-linear v-if="activeSearch.loading" indeterminate color="primary" class="mb-2" />
+              <v-alert v-if="activeSearch.error" type="warning" variant="tonal" density="compact" class="mb-2">
+                {{ t('MineLatinoCreateProfile.searchError') }}
+                <v-btn variant="text" size="small" @click="activeSearch.loadMore()">{{ t('MineLatinoHome.refresh') }}</v-btn>
+              </v-alert>
               <div
                 v-for="hit in activeSearch.results"
                 :key="hit.project_id"
@@ -184,6 +206,7 @@
                 <img
                   v-if="hit.icon_url"
                   :src="hit.icon_url"
+                  :alt="hit.title"
                   class="ml-search-icon rounded-lg flex-shrink-0"
                   width="40"
                   height="40"
@@ -200,7 +223,7 @@
                   size="small"
                   variant="tonal"
                   color="primary"
-                  :disabled="creating"
+                  :disabled="creating || (contentTab === 'mods' && !selectedLoader)"
                   @click="queueItem(hit)"
                 >
                   <v-icon start size="14">add</v-icon>
@@ -240,7 +263,7 @@
             <div class="flex flex-col gap-1 text-sm" style="color: var(--ml-dim)">
               <div><strong>{{ t('MineLatinoCreateProfile.name') }}:</strong> {{ profileName || '(auto)' }}</div>
               <div><strong>{{ t('MineLatinoCreateProfile.mcVersion') }}:</strong> {{ selectedVersion }}</div>
-              <div><strong>{{ t('MineLatinoCreateProfile.loader') }}:</strong> {{ selectedLoader || 'Vanilla' }}</div>
+              <div><strong>{{ t('MineLatinoCreateProfile.loader') }}:</strong> {{ selectedLoader || 'Vanilla' }} {{ loaderVersion }}</div>
             </div>
           </div>
           <div v-if="queuedMods.length || queuedResourcepacks.length || queuedShaders.length" class="ml-confirm-card rounded-lg pa-4">
@@ -282,7 +305,7 @@
           v-if="step < 3"
           color="primary"
           variant="flat"
-          :disabled="step === 1 && !selectedVersion"
+          :disabled="step === 1 && (!selectedVersion || (!!selectedLoader && !loaderVersion))"
           @click="onNext"
         >
           {{ t('MineLatinoCreateProfile.next') }}
@@ -313,8 +336,15 @@ import { clientModrinthV2 } from '@/util/clients'
 import { useMineLatinoProfileSearch } from '@/composables/mineLatinoProfileSearch'
 import { injection } from '@/util/inject'
 import type { SearchResultHit } from '@xmcl/modrinth'
+import type { Component } from 'vue'
+import VersionInputFabric from './VersionInputFabric.vue'
+import VersionInputForge from './VersionInputForge.vue'
+import VersionInputNeoForged from './VersionInputNeoForged.vue'
+import VersionInputQuilt from './VersionInputQuilt.vue'
+import { useNotifier } from '@/composables/notifier'
 
 const { t } = useI18n()
+const { notify } = useNotifier()
 const { createInstance } = useService(InstanceServiceKey)
 const { installFromMarket: installMod } = useService(InstanceModsServiceKey)
 const { installFromMarket: installResourcePack } = useService(InstanceResourcePacksServiceKey)
@@ -351,6 +381,11 @@ const stepLabels = computed(() => [
 const profileName = ref('')
 const selectedVersion = ref('')
 const selectedLoader = ref('')
+const loaderVersion = ref('')
+const loaderInputs: Record<string, Component> = {
+  fabric: VersionInputFabric, forge: VersionInputForge,
+  neoforge: VersionInputNeoForged, quilt: VersionInputQuilt,
+}
 
 // Step 2 state
 const contentTab = ref<'mods' | 'resourcepacks' | 'shaders'>('mods')
@@ -363,17 +398,17 @@ const sortOptions = computed(() => [
 
 const modSearch = useMineLatinoProfileSearch(
   ref('mod'),
-  selectedVersion as any,
+  selectedVersion,
   computed(() => selectedLoader.value || ''),
 )
 const rpSearch = useMineLatinoProfileSearch(
   ref('resourcepacks'),
-  selectedVersion as any,
+  selectedVersion,
   computed(() => selectedLoader.value || ''),
 )
 const shaderSearch = useMineLatinoProfileSearch(
   ref('shaders'),
-  selectedVersion as any,
+  selectedVersion,
   computed(() => selectedLoader.value || ''),
 )
 
@@ -423,7 +458,7 @@ function unqueueItem(id: string) {
 }
 
 function formatDownloads(n: number | undefined | null): string {
-  if (n == null) return ''
+  if (n === null || n === undefined) return ''
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
@@ -433,10 +468,6 @@ function formatDownloads(n: number | undefined | null): string {
 const creating = ref(false)
 
 function onNext() {
-  if (step.value === 1) {
-    // Trigger initial search when entering content step
-    void modSearch.search()
-  }
   step.value++
 }
 
@@ -454,30 +485,32 @@ function close() {
 }
 
 async function onCreate() {
+  if (creating.value) return
   creating.value = true
   try {
     const runtime: Record<string, string> = { minecraft: selectedVersion.value }
-    if (selectedLoader.value === 'forge') runtime.forge = ''
-    else if (selectedLoader.value === 'fabric') runtime.fabricLoader = ''
-    else if (selectedLoader.value === 'neoforge') runtime.neoForged = ''
-    else if (selectedLoader.value === 'quilt') runtime.quiltLoader = ''
+    if (selectedLoader.value === 'forge') runtime.forge = loaderVersion.value
+    else if (selectedLoader.value === 'fabric') runtime.fabricLoader = loaderVersion.value
+    else if (selectedLoader.value === 'neoforge') runtime.neoForged = loaderVersion.value
+    else if (selectedLoader.value === 'quilt') runtime.quiltLoader = loaderVersion.value
 
     const newPath = await createInstance({
-      name: profileName.value || undefined,
+      name: profileName.value.trim() || `Minecraft ${selectedVersion.value} ${selectedLoader.value || 'Vanilla'}`,
       runtime: runtime as any,
     })
 
     // Install queued Modrinth projects via the appropriate service
     const allQueued = [...queuedMods.value, ...queuedResourcepacks.value, ...queuedShaders.value]
+    const failed: string[] = []
     for (const item of allQueued) {
       try {
         // Fetch the latest compatible version for this project
         const versions = await clientModrinthV2.getProjectVersions(item.projectId, {
           gameVersions: [selectedVersion.value],
-          loaders: selectedLoader.value ? [selectedLoader.value] : undefined,
+          loaders: item.type === 'mod' && selectedLoader.value ? [selectedLoader.value] : undefined,
         })
         const latest = versions[0]
-        if (!latest) continue
+        if (!latest) throw new Error('No compatible version')
 
         const opt = {
           market: MarketType.Modrinth as const,
@@ -489,32 +522,47 @@ async function onCreate() {
         else if (item.type === 'resourcepack') await installResourcePack(opt)
         else if (item.type === 'shader') await installShader(opt)
       } catch {
-        // Non-fatal: the instance is created, items can be added later
+        failed.push(item.title)
       }
     }
 
+    if (failed.length) {
+      notify({ level: 'warning', title: t('MineLatinoCreateProfile.title'), body: t('MineLatinoCreateProfile.installFailed', { items: failed.join(', ') }) })
+    }
+    creating.value = false
     emit('created', newPath)
     close()
   } catch (err) {
     console.error('Failed to create profile:', err)
+    notify({ level: 'error', title: t('MineLatinoCreateProfile.title'), body: t('MineLatinoCreateProfile.createFailed') })
   } finally {
     creating.value = false
   }
 }
 
-// Watch content tab to trigger search on first switch
-const searchedTabs = ref(new Set<string>())
-watch(contentTab, (tab) => {
-  const search = tab === 'resourcepacks' ? rpSearch : tab === 'shaders' ? shaderSearch : modSearch
-  if (!searchedTabs.value.has(tab) && search.results.length === 0) {
-    searchedTabs.value.add(tab)
-    void search.search()
-  }
+// Cancel immediately on input changes; debounce only the replacement request.
+watch([shown, step, contentTab, selectedVersion, selectedLoader,
+  () => activeSearch.value.query, () => activeSearch.value.sortBy], (_, __, onCleanup) => {
+  const search = activeSearch.value
+  if (!shown.value || step.value !== 2) return
+  const timer = setTimeout(() => { void search.search() }, 300)
+  onCleanup(() => { clearTimeout(timer); search.cancel() })
 })
-
-// Reset searched tabs when dialog closes
+watch([selectedVersion, selectedLoader], () => {
+  loaderVersion.value = ''
+  modSearch.reset()
+  rpSearch.reset()
+  shaderSearch.reset()
+  queuedMods.value = []
+  queuedResourcepacks.value = []
+  queuedShaders.value = []
+})
 watch(shown, (v) => {
-  if (!v) searchedTabs.value.clear()
+  if (!v) {
+    modSearch.reset()
+    rpSearch.reset()
+    shaderSearch.reset()
+  }
 })
 </script>
 

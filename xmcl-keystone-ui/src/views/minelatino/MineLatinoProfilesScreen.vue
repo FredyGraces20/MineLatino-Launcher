@@ -97,7 +97,7 @@ import type { Instance } from '@xmcl/instance'
 
 const { t } = useI18n()
 const { accentColor } = injection(kMineLatino)
-const { instances, selectedInstance, path } = injection(kInstances)
+const { instances, selectedInstance } = injection(kInstances)
 
 const router = useRouter()
 const showCreateDialog = ref(false)

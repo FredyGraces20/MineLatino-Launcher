@@ -101,6 +101,9 @@ MineLatinoProfiles:
   create: Crear perfil
   empty: Aún no hay perfiles. ¡Crea uno para empezar!
 MineLatinoCreateProfile:
+  installFailed: 'El perfil se creó, pero no se pudieron instalar: {items}. Puedes reintentarlo desde el catálogo de contenido del perfil.'
+  createFailed: No se pudo crear el perfil. Revisa la configuración e inténtalo de nuevo.
+  requiresLoader: Para añadir mods, vuelve al paso anterior y selecciona Forge, Fabric, NeoForge o Quilt.
   title: Crear perfil
   stepConfig: Configuración básica
   stepContent: Mods, texturas y shaders
