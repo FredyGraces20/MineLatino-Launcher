@@ -11,13 +11,13 @@ import type {
  * The single value that has to be baked into the client: where the backend
  * lives. Everything else the launcher shows is served from there.
  *
- * While this still contains `CHANGE_ME` the service skips the network entirely
- * and runs on `FALLBACK_CONFIG`, which keeps the home screen functional (and
- * the log clean) before the Railway service exists. Override with the
- * `MINELATINO_BACKEND_URL` environment variable to point a build at a staging
- * backend without recompiling.
+ * This is the production Railway deployment of `MineLatino-Backend`. If it ever
+ * contains `CHANGE_ME` the service skips the network entirely and runs on
+ * `FALLBACK_CONFIG`, which keeps the home screen functional (and the log clean)
+ * without a backend. Override with the `MINELATINO_BACKEND_URL` environment
+ * variable to point a build at a staging backend without recompiling.
  */
-export const DEFAULT_BACKEND_URL = 'https://CHANGE_ME.up.railway.app'
+export const DEFAULT_BACKEND_URL = 'https://minelatino-production.up.railway.app'
 
 const PLACEHOLDER = 'CHANGE_ME'
 

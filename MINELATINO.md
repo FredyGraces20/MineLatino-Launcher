@@ -583,12 +583,13 @@ which a typecheck exercises.
 Nothing below is a code gap; every one is a value only the operator can supply.
 Until then the launcher runs on `FALLBACK_CONFIG` and deliberately looks inert.
 
-- **Backend URL.** `DEFAULT_BACKEND_URL` is still
-  `https://CHANGE_ME.up.railway.app` (`main/minelatino/config.ts:20`). While it
-  contains `CHANGE_ME`, `resolveBackendUrl()` returns `''`, the service skips the
-  network entirely and logs one warning naming both variables. Set
-  `MINELATINO_BACKEND_URL` to point a build at staging without recompiling, or bake
-  the production domain into `DEFAULT_BACKEND_URL` before packaging.
+- **Backend URL.** Deployed: `DEFAULT_BACKEND_URL` is now the live Railway service
+  `https://minelatino-production.up.railway.app` (`main/minelatino/config.ts:20`).
+  Verified in production — `/health` reports `ok:true` (only `discordBotToken` and
+  `releaseManifest` still unconfigured), `/api/config` returns the MineLatino
+  branding + `play.minelatino.com`, `/api/updates` returns real WordPress posts and
+  `/api/release` answers "up to date". Set `MINELATINO_BACKEND_URL` to point a build
+  at staging without recompiling.
 - **Server address.** Supplied: `play.minelatino.com` is now the default
   `ML_SERVER_HOST` and the `FALLBACK_CONFIG` host, with `autoJoin: true`, so the
   Play button and `servers.dat` work out of the box.
@@ -613,11 +614,15 @@ Until then the launcher runs on `FALLBACK_CONFIG` and deliberately looks inert.
 - **Microsoft login smoke test.** The plan's Phase 0 gate — confirming XMCL's
   bundled client ID still authenticates — has not been run, because it needs a
   running launcher and a real account. It is the one risk the fork does not control.
-- **GitHub repo for releases.** `ML_GITHUB_OWNER` / `ML_GITHUB_REPO` (builder
-  `publish`) and `RELEASE_ASSETS_BASE_URL` (backend manifest) all need the repo to
-  exist. Until then `publish` is `[]` and the manifest must be given
-  `RELEASE_ASSETS_BASE_URL` by hand. An `origin` remote for the fork is also still
-  unset; only `upstream` exists.
+- **GitHub repo for releases.** Supplied: both repos exist under `FredyGraces20` —
+  `MineLatino-Launcher` (public, so GitHub Releases downloads work without auth)
+  and `MineLatino-Backend` (private). `ML_GITHUB_OWNER`/`ML_GITHUB_REPO` now default
+  to them in `build/electron-builder.config.ts`, and `RELEASE_ASSETS_BASE_URL` is set
+  on Railway to `…/MineLatino-Launcher/releases/download/RELEASE_TAG`. What still
+  blocks an actual self-update is publishing a first release (upload the build output
+  and set `RELEASE_TAG_NAME`) — until then `/api/release` correctly reports "up to
+  date". The launcher's history is a clean orphan root (upstream was a shallow clone
+  that could not be pushed).
 - **Code signing.** The build is unsigned, so Windows SmartScreen will warn on first
   run. Ship the player guide ("Más información → Ejecutar de todos modos") now; a
   certificate later removes the warning.
