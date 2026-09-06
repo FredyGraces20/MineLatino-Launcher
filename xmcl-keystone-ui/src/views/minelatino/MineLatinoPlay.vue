@@ -737,11 +737,10 @@ function onStart() {
   max-width: calc(100% - 28px);
   padding: 5px 14px 5px 6px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ml-accent) 30%, transparent);
-  background-color: color-mix(in srgb, rgb(var(--v-theme-surface)) 72%, transparent);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.85);
+  border: 1px solid var(--ml-border);
+  background-color: var(--ml-raise);
+  box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.6);
+  z-index: 2;
 }
 
 .ml-play-face {
@@ -751,7 +750,7 @@ function onStart() {
   background-size: 208px 208px;
   background-position: -26px -26px;
   image-rendering: pixelated;
-  box-shadow: 0 0 0 1px rgba(var(--v-theme-on-surface), 0.18);
+  box-shadow: 0 0 0 1px var(--ml-border-soft);
   flex-grow: 0;
   flex-shrink: 0;
 }
@@ -759,6 +758,7 @@ function onStart() {
 .ml-play-nameplate-text {
   font-size: 0.82rem;
   font-weight: 700;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
