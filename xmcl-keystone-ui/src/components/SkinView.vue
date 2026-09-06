@@ -87,7 +87,6 @@ onMounted(() => {
     canvas: canvasRef.value!,
     width: props.width,
     height: props.height,
-    nameTag: props.name || undefined,
     fov: 45,
     zoom: props.zoom,
   })
@@ -120,10 +119,6 @@ watch(() => props.cape, (v) => {
   } else {
     activeViewer.resetCape()
   }
-})
-
-watch(() => props.name, (v) => {
-  if (viewer) viewer.nameTag = v || null
 })
 
 watch(() => props.paused, (paused) => {
