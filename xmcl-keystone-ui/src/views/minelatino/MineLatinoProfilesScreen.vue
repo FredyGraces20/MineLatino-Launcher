@@ -61,6 +61,17 @@
           </div>
         </div>
         <v-icon v-if="inst.path === selectedInstance" size="18" color="primary">check_circle</v-icon>
+        <v-btn
+          icon
+          variant="text"
+          size="x-small"
+          color="error"
+          class="ml-profile-delete"
+          :aria-label="t('MineLatinoProfiles.delete')"
+          @click.stop="confirmDelete(inst)"
+        >
+          <v-icon size="18">delete</v-icon>
+        </v-btn>
       </div>
     </div>
 
@@ -84,6 +95,27 @@
       v-model="showCreateDialog"
       @created="onCreated"
     />
+
+    <!-- Delete confirmation dialog -->
+    <v-dialog v-model="showDeleteDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-base font-semibold">
+          {{ t('MineLatinoProfiles.deleteTitle') }}
+        </v-card-title>
+        <v-card-text>
+          {{ t('MineLatinoProfiles.deleteConfirm', { name: pendingDelete?.name || '' }) }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeleteDialog = false">
+            {{ t('MineLatinoProfiles.deleteCancel') }}
+          </v-btn>
+          <v-btn color="error" variant="flat" @click="doDelete">
+            {{ t('MineLatinoProfiles.deleteConfirmBtn') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -97,10 +129,12 @@ import type { Instance } from '@xmcl/instance'
 
 const { t } = useI18n()
 const { accentColor } = injection(kMineLatino)
-const { instances, selectedInstance } = injection(kInstances)
+const { instances, selectedInstance, remove } = injection(kInstances)
 
 const router = useRouter()
 const showCreateDialog = ref(false)
+const showDeleteDialog = ref(false)
+const pendingDelete = ref<Instance | null>(null)
 
 function selectInstance(instancePath: string) {
   selectedInstance.value = instancePath
@@ -110,6 +144,18 @@ function selectInstance(instancePath: string) {
 function onCreated(newPath: string) {
   selectedInstance.value = newPath
   router.push('/minelatino/jugar')
+}
+
+function confirmDelete(inst: Instance) {
+  pendingDelete.value = inst
+  showDeleteDialog.value = true
+}
+
+async function doDelete() {
+  if (!pendingDelete.value) return
+  await remove(pendingDelete.value.path, true)
+  showDeleteDialog.value = false
+  pendingDelete.value = null
 }
 
 function formatPlaytime(ms: number): string {
@@ -165,5 +211,15 @@ function iconOf(inst: Instance) {
 .ml-profile-card--selected {
   border-color: var(--ml-accent);
   background: var(--ml-raise);
+}
+
+.ml-profile-delete {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ml-profile-card:hover .ml-profile-delete {
+  opacity: 1;
 }
 </style>

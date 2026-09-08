@@ -100,6 +100,11 @@ MineLatinoProfiles:
   subtitle: Manage your Minecraft profiles
   create: Create profile
   empty: No profiles yet. Create one to get started!
+  delete: Delete profile
+  deleteTitle: Delete profile
+  deleteConfirm: Are you sure you want to delete "{name}"? The instance and all its data will be removed.
+  deleteCancel: Cancel
+  deleteConfirmBtn: Delete
 MineLatinoCreateProfile:
   installFailed: 'The profile was created, but these items could not be installed: {items}. You can retry from the profile content catalog.'
   requiresLoader: To add mods, return to the previous step and select Forge, Fabric, NeoForge or Quilt.
