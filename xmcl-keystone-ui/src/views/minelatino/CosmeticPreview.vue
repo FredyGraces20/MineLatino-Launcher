@@ -33,7 +33,7 @@ function clearModel() {
   mesh = undefined; attachment = undefined; texture = undefined
 }
 function turn(back: boolean) {
-  if (viewer) { viewer.playerObject.rotation.y = back ? Math.PI : 0; viewer.controls.reset(); viewer.resetCameraPose() }
+  if (viewer) { viewer.controls.reset(); viewer.resetCameraPose(); viewer.controls.azimuthAngle = back ? 0 : Math.PI; viewer.controls.update() }
 }
 async function load() {
   request?.abort()
@@ -98,7 +98,7 @@ async function load() {
         target.playerObject.skin.body.add(compatibleAttachment)
       }
     }
-    if (request === active) { turn(true) }
+    if (request === active) turn(false)
   } catch (e) {
     if (request === active) error.value = active.signal.aborted ? 'La vista 3D tardó demasiado en cargar.' : e instanceof Error ? e.message : 'Vista 3D no disponible'
   } finally {
