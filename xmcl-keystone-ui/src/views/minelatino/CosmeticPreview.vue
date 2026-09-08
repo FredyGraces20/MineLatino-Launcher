@@ -79,6 +79,7 @@ async function load() {
       attachment = new Group()
       // skinview3d's nested Three declarations differ from the workspace declarations.
       const compatibleAttachment = attachment as unknown as Parameters<typeof target.playerObject.add>[0]
+      mesh.rotation.y = Math.PI
       attachment.add(mesh)
       if (product.slot === 'HAT') {
         // CustomHeadLayer default: 0.625 scale, base at head Y=-0.25 in model-part space.
@@ -98,7 +99,7 @@ async function load() {
         target.playerObject.skin.body.add(compatibleAttachment)
       }
     }
-    if (request === active) turn(product.slot !== 'HAT' && product.slot !== 'PET')
+    if (request === active) turn(false)
   } catch (e) {
     if (request === active) error.value = active.signal.aborted ? 'La vista 3D tardó demasiado en cargar.' : e instanceof Error ? e.message : 'Vista 3D no disponible'
   } finally {
