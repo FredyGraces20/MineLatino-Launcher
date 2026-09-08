@@ -14,26 +14,29 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { SkinViewer } from 'skinview3d'
-import { Group, Mesh, MeshStandardMaterial, NearestFilter, SRGBColorSpace, Texture } from 'three'
+import { Group, Mesh } from 'three'
 import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
-import { cosmeticGeometry, JavaCosmeticModel } from '@/util/cosmeticGeometry'
+import { JavaCosmeticModel } from '@/util/cosmeticGeometry'
+import { createCosmeticMesh, disposeCosmeticMesh } from '@/util/cosmeticMaterials'
 
 const props = defineProps<{ product: CosmeticProduct; skin: string }>()
 const canvas = ref<HTMLCanvasElement>()
 const container = ref<HTMLDivElement>()
 const loading = ref(true), error = ref('')
 let viewer: SkinViewer | undefined, observer: ResizeObserver | undefined
-let mesh: Mesh | undefined, attachment: Group | undefined, texture: Texture | undefined
+let mesh: Mesh | undefined, attachment: Group | undefined
 let request: AbortController | undefined
 function clearModel() {
   attachment?.removeFromParent()
-  mesh?.geometry.dispose()
-  if (mesh?.material instanceof MeshStandardMaterial) mesh.material.dispose()
-  texture?.dispose()
-  mesh = undefined; attachment = undefined; texture = undefined
+  if (mesh) disposeCosmeticMesh(mesh)
+  mesh = undefined; attachment = undefined
 }
 function turn(back: boolean) {
-  if (viewer) { viewer.controls.reset(); viewer.resetCameraPose(); viewer.controls.azimuthAngle = back ? 0 : Math.PI; viewer.controls.update() }
+  if (viewer) {
+    viewer.controls.reset(); viewer.resetCameraPose()
+    if (back) { viewer.camera.position.x *= -1; viewer.camera.position.z *= -1 }
+    viewer.controls.update()
+  }
 }
 async function load() {
   request?.abort()
@@ -44,7 +47,6 @@ async function load() {
   const target = viewer, product = props.product
   if (!target) { clearTimeout(timeout); return }
   target.resetCape()
-  let bitmap: ImageBitmap | undefined
   try {
     // Only trusted selected profile skins are passed here; a failed skin never silently shows another player.
     await Promise.race([target.loadSkin(props.skin), new Promise<never>((_, reject) => active.signal.addEventListener('abort', () => reject(new Error('Tiempo de espera agotado')), { once: true }))])
@@ -54,28 +56,14 @@ async function load() {
       if (product.slot !== 'CAPE' && product.slot !== 'WINGS') throw new Error('Falta el modelo Java JSON para previsualizar este cosmético.')
       await Promise.race([target.loadCape(resourceUrl(product), { backEquipment: product.slot === 'WINGS' ? 'elytra' : 'cape' }), new Promise<never>((_, reject) => active.signal.addEventListener('abort', () => reject(new Error('Tiempo de espera agotado')), { once: true }))])
     } else {
-      const [modelResponse, textureResponse] = await Promise.all([
-        fetch(resourceUrl(product, true), { signal: active.signal, credentials: 'omit' }),
-        fetch(resourceUrl(product), { signal: active.signal, credentials: 'omit' }),
-      ])
-      if (!modelResponse.ok || !textureResponse.ok) throw new Error('No se pudieron descargar el modelo y su textura.')
-      const modelText = await modelResponse.text(), blob = await textureResponse.blob()
-      if (modelText.length > 2 * 1024 * 1024 || blob.size > 2 * 1024 * 1024) throw new Error('Recurso demasiado grande')
+      const modelResponse = await fetch(resourceUrl(product, true), { signal: active.signal, credentials: 'omit' })
+      if (!modelResponse.ok) throw new Error('No se pudo descargar el modelo.')
+      const modelText = await modelResponse.text()
+      if (modelText.length > 2 * 1024 * 1024) throw new Error('Recurso demasiado grande')
       const model: JavaCosmeticModel = JSON.parse(modelText)
-      bitmap = await createImageBitmap(blob, { imageOrientation: 'flipY' })
-      if (bitmap.width > 4096 || bitmap.height > 4096) throw new Error('Textura demasiado grande')
-      if (active.signal.aborted || request !== active) return
-      const geometry = cosmeticGeometry(model)
-      texture = new Texture(bitmap)
-      texture.minFilter = NearestFilter; texture.magFilter = NearestFilter
-      // Runtime is Three 0.156; the workspace still carries pre-colorSpace 0.150 types.
-      ;(texture as Texture & { colorSpace: string }).colorSpace = SRGBColorSpace
-      texture.needsUpdate = true
-      // Texture owns the bitmap until model disposal.
-      const ownedBitmap = bitmap
-      texture.addEventListener('dispose', () => ownedBitmap.close())
-      bitmap = undefined
-      mesh = new Mesh(geometry, new MeshStandardMaterial({ map: texture, alphaTest: 0.1, roughness: 1 }))
+      const loaded = await createCosmeticMesh(product, model, active.signal)
+      if (active.signal.aborted || request !== active) { disposeCosmeticMesh(loaded); return }
+      mesh = loaded
       attachment = new Group()
       // skinview3d's nested Three declarations differ from the workspace declarations.
       const compatibleAttachment = attachment as unknown as Parameters<typeof target.playerObject.add>[0]
@@ -97,6 +85,12 @@ async function load() {
         target.playerObject.add(compatibleAttachment)
       } else {
         attachment.position.set(0, 1.2, product.slot === 'BACKPACK' ? -4.8 : -2.56)
+        if (product.slot === 'BACKPACK' && model.display?.minelatino_backpack) {
+          const b = model.display.minelatino_backpack
+          mesh.position.set(...(b.translation ?? [0,0,0]))
+          mesh.rotation.set(...((b.rotation ?? [0,0,0]).map(v => v * Math.PI / 180) as [number,number,number]))
+          mesh.scale.set(...(b.scale ?? [1,1,1]))
+        }
         target.playerObject.skin.body.add(compatibleAttachment)
       }
     }
@@ -104,7 +98,6 @@ async function load() {
   } catch (e) {
     if (request === active) error.value = active.signal.aborted ? 'La vista 3D tardó demasiado en cargar.' : e instanceof Error ? e.message : 'Vista 3D no disponible'
   } finally {
-    bitmap?.close()
     clearTimeout(timeout)
     if (request === active) loading.value = false
   }

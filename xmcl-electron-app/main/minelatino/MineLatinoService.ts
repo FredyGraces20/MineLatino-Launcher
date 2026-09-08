@@ -1,4 +1,4 @@
-import { readFile, outputJson, readdir } from 'fs-extra'
+import { readFile, outputJson, readdir, remove } from 'fs-extra'
 import { join } from 'path'
 import {
   MineLatinoServiceKey,
@@ -606,7 +606,8 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
    *
    * The check is fast when nothing is missing: it only reads the mods/
    * directory listing and compares file names. Downloads happen only when a JAR
-   * is absent or an older version is detected.
+   * is absent or an older version is detected. Before installing the new JAR,
+   * older versions of the same mod are removed from the mods/ directory.
    */
   async syncAutoMods(): Promise<void> {
     const autoMods = this.#config.autoMods
@@ -631,6 +632,20 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
 
         // Already installed with the expected file name — skip.
         if (existingMods.has(match.fileName.toLowerCase())) continue
+
+        // Remove older JARs of the same mod before installing the new one.
+        const prefix = `${mod.id}-${loader}-${minecraft}-`
+        for (const file of existingMods) {
+          if (file !== match.fileName.toLowerCase() && file.startsWith(prefix) && file.endsWith('.jar')) {
+            try {
+              const oldPath = join(instancePath, 'mods', file)
+              await remove(oldPath)
+              this.log(`[autoMods] Removed old ${file} from ${instance.name || instancePath}`)
+            } catch (err) {
+              this.warn(`[autoMods] Failed to remove old ${file}: ${(err as Error).message}`)
+            }
+          }
+        }
 
         // Build an InstanceFile for the download pipeline.
         const instanceFile = {

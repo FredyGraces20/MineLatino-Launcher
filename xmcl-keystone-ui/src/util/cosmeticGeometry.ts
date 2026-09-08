@@ -1,14 +1,25 @@
 import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
 
 type Vec = [number, number, number]
-interface Element { from: Vec; to: Vec; rotation?: { axis: 'x' | 'y' | 'z'; origin: Vec; angle: number; rescale?: boolean }; faces: Record<string, { uv?: number[]; rotation?: number }> }
-export interface JavaCosmeticModel { elements: Element[]; display?: { head?: { translation?: Vec; rotation?: Vec; scale?: Vec } } }
+interface Element { from: Vec; to: Vec; rotation?: { axis: 'x' | 'y' | 'z'; origin: Vec; angle: number; rescale?: boolean }; faces: Record<string, { uv?: number[]; rotation?: number; texture?: string | null }> }
+export interface JavaCosmeticModel { textures?: Record<string, string>; elements: Element[]; display?: { head?: { translation?: Vec; rotation?: Vec; scale?: Vec }; minelatino_backpack?: { translation?: Vec; rotation?: Vec; scale?: Vec } } }
+export function textureName(model: JavaCosmeticModel, reference = '') {
+  const visited = new Set<string>()
+  while (reference.startsWith('#')) {
+    if (visited.has(reference) || typeof model.textures?.[reference.slice(1)] !== 'string') throw new Error(`Textura no resuelta: ${reference}`)
+    visited.add(reference); reference = model.textures[reference.slice(1)]
+  }
+  const name = reference.slice(reference.lastIndexOf('/') + 1).replace(/\.png$/, '')
+  if (name && !/^[a-z0-9_]{1,32}$/.test(name)) throw new Error('Nombre de textura no admitido')
+  return name
+}
 const vector = (v: unknown, n: number) => Array.isArray(v) && v.length === n && v.every(x => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) <= 65536)
 
 /** Matches the mod's single-texture Java element format, including per-face UV rotations. */
 export function cosmeticGeometry(model: JavaCosmeticModel) {
   if (!Array.isArray(model?.elements) || !model.elements.length || model.elements.length > 4096) throw new Error('Se requiere un modelo Minecraft Java con 1–4096 elementos')
   const positions: number[] = [], uv: number[] = []
+  const names: string[] = [], groups: { start: number; count: number; materialIndex: number }[] = []
   for (const e of model.elements) {
     if (!vector(e.from, 3) || !vector(e.to, 3) || !e.faces) throw new Error('Elemento inválido')
     const [x, y, z] = e.from, [X, Y, Z] = e.to
@@ -23,7 +34,10 @@ export function cosmeticGeometry(model: JavaCosmeticModel) {
     }
     for (const [direction, corners] of Object.entries(faces)) {
       const face = e.faces[direction]
-      if (!face) continue
+      if (!face || face.texture === null) continue
+      const name = textureName(model, face.texture)
+      if (!names.includes(name)) names.push(name)
+      groups.push({ start: positions.length / 3, count: 6, materialIndex: names.indexOf(name) })
       const rect = face.uv ?? defaults[direction], turn = face.rotation ?? 0
       if (!vector(rect, 4) || ![0,90,180,270].includes(turn)) throw new Error('UV inválidas')
       const vertices = corners.map(c => {
@@ -48,8 +62,12 @@ export function cosmeticGeometry(model: JavaCosmeticModel) {
   }
   const head = model.display?.head
   for (const v of [head?.translation, head?.rotation, head?.scale]) if (v !== undefined && !vector(v, 3)) throw new Error('Transformación head inválida')
+  const backpack = model.display?.minelatino_backpack
+  for (const v of [backpack?.translation, backpack?.rotation, backpack?.scale]) if (v !== undefined && !vector(v, 3)) throw new Error('Transformación backpack inválida')
   if (!positions.length) throw new Error('Modelo sin caras visibles')
   const geometry = new BufferGeometry()
+  for (const group of groups) geometry.addGroup(group.start, group.count, group.materialIndex)
+  geometry.userData.textureNames = names
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
   geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
   geometry.computeVertexNormals()
