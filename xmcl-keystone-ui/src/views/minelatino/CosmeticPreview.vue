@@ -33,7 +33,7 @@ function clearModel() {
   mesh = undefined; attachment = undefined; texture = undefined
 }
 function turn(back: boolean) {
-  if (viewer) { viewer.playerObject.rotation.y = back ? Math.PI : 0; viewer.controls.reset() }
+  if (viewer) { viewer.playerObject.rotation.y = back ? Math.PI : 0; viewer.controls.reset(); viewer.resetCameraPose() }
 }
 async function load() {
   request?.abort()
@@ -79,7 +79,6 @@ async function load() {
       attachment = new Group()
       // skinview3d's nested Three declarations differ from the workspace declarations.
       const compatibleAttachment = attachment as unknown as Parameters<typeof target.playerObject.add>[0]
-      mesh.rotation.y = Math.PI
       attachment.add(mesh)
       if (product.slot === 'HAT') {
         // CustomHeadLayer default: 0.625 scale, base at head Y=-0.25 in model-part space.
