@@ -158,6 +158,10 @@ export const router = createRouter({
           component: () => import('@/views/minelatino/MineLatinoStoreScreen.vue'),
         },
         {
+          path: 'cosmeticos',
+          component: () => import('@/views/minelatino/MineLatinoCosmeticsScreen.vue'),
+        },
+        {
           path: 'anuncios',
           component: () => import('@/views/minelatino/MineLatinoNewsScreen.vue'),
         },
@@ -181,4 +185,3 @@ export const router = createRouter({
     },
   ],
 })
-

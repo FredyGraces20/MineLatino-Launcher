@@ -182,6 +182,7 @@ const nav = [
   { key: 'anuncios', icon: 'campaign', to: '/minelatino/anuncios' },
   { key: 'actualizaciones', icon: 'new_releases', to: '/minelatino/actualizaciones' },
   { key: 'tienda', icon: 'storefront', to: '/minelatino/tienda' },
+  { key: 'cosmeticos', icon: 'checkroom', to: '/minelatino/cosmeticos' },
   { key: 'clasificaciones', icon: 'emoji_events', to: '/minelatino/clasificaciones' },
 ]
 
