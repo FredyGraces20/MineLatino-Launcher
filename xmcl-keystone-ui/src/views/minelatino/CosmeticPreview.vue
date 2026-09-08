@@ -92,9 +92,13 @@ async function load() {
       } else if (product.slot === 'PET') {
         attachment.position.set(-12.8, -8, 0)
         attachment.scale.setScalar(0.55)
+        // Match the mod's scale(1,-1,-1): negate Z to reverse face winding (Y already up in skinview3d).
+        mesh.scale.set(1, 1, -1)
         target.playerObject.add(compatibleAttachment)
       } else {
         attachment.position.set(0, 1.2, product.slot === 'BACKPACK' ? -4.8 : -2.56)
+        // Match the mod's scale(1,-1,-1): negate Z to reverse face winding (Y already up in skinview3d).
+        mesh.scale.set(1, 1, -1)
         target.playerObject.skin.body.add(compatibleAttachment)
       }
     }
