@@ -14,7 +14,7 @@
     <div class="catalog-layout">
       <div class="product-grid">
         <button v-for="product in filtered" :key="product.id" type="button" class="product-card" @click="open(product)">
-          <div class="product-art"><img v-if="product.hasTexture" :src="resourceUrl(product)" :alt="`Textura de ${product.name}`" loading="lazy"><v-icon v-else size="52">checkroom</v-icon><span>PROBAR EN 3D ↗</span></div>
+          <div class="product-art" :data-thumb-id="product.id"><CosmeticThumbnail :product="product" :alt="`Vista 3D de ${product.name}`" /><span>PROBAR EN 3D ↗</span></div>
           <div class="product-copy"><small>{{ cosmeticSlots[product.slot] }}</small><h2>{{ product.name }}</h2><strong>{{ priceLabel(product) }}</strong></div>
         </button>
       </div>
@@ -63,6 +63,7 @@ import { kUserContext } from '@/composables/user'
 import { injection } from '@/util/inject'
 import { CosmeticProduct, cosmeticSlots, priceLabel, resourceUrl, useCosmeticsStore } from '@/composables/cosmeticsStore'
 import CosmeticPreview from './CosmeticPreview.vue'
+import CosmeticThumbnail from './CosmeticThumbnail.vue'
 
 const { gameProfile } = injection(kUserContext)
 const skin = computed(() => gameProfile.value?.textures?.SKIN?.url || steveSkin)
