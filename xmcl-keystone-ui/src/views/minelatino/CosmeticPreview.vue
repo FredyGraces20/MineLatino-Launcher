@@ -80,6 +80,8 @@ async function load() {
       // skinview3d's nested Three declarations differ from the workspace declarations.
       const compatibleAttachment = attachment as unknown as Parameters<typeof target.playerObject.add>[0]
       attachment.add(mesh)
+      // Rotate cosmetic model 180° so it faces the camera (Blockbench front = -Z, camera at +Z).
+      attachment.rotation.y = Math.PI
       if (product.slot === 'HAT') {
         // CustomHeadLayer default: 0.625 scale, base at head Y=-0.25 in model-part space.
         attachment.position.set(0, 4, 0)
@@ -92,13 +94,9 @@ async function load() {
       } else if (product.slot === 'PET') {
         attachment.position.set(-12.8, -8, 0)
         attachment.scale.setScalar(0.55)
-        // Match the mod's scale(1,-1,-1): negate Z to reverse face winding (Y already up in skinview3d).
-        mesh.scale.set(1, 1, -1)
         target.playerObject.add(compatibleAttachment)
       } else {
         attachment.position.set(0, 1.2, product.slot === 'BACKPACK' ? -4.8 : -2.56)
-        // Match the mod's scale(1,-1,-1): negate Z to reverse face winding (Y already up in skinview3d).
-        mesh.scale.set(1, 1, -1)
         target.playerObject.skin.body.add(compatibleAttachment)
       }
     }
