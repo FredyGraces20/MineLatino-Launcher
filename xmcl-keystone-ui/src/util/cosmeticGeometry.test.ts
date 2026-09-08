@@ -22,4 +22,13 @@ describe('cosmetic Java model preview', () => {
     expect(Array.from((geometry.getAttribute('uv') as BufferAttribute).array).slice(0,2)).toEqual([0.125,0.25])
     geometry.dispose()
   })
+  it('keeps Java UV units independent of Blockbench texture_size metadata', () => {
+    const geometry = cosmeticGeometry({ texture_size: [128, 128], elements: [{ from: [0,0,0], to: [16,16,16], faces: { north: { uv: [0, 14.125, 16, 30.125] } } }] })
+    const uvArr = Array.from((geometry.getAttribute('uv') as BufferAttribute).array)
+    expect(uvArr[0]).toBeCloseTo(0)
+    expect(uvArr[1]).toBeCloseTo(1 - 14.125 / 16)
+    expect(uvArr[3]).toBeCloseTo(1 - 30.125 / 16)
+    expect(uvArr[4]).toBeCloseTo(1)
+    geometry.dispose()
+  })
 })

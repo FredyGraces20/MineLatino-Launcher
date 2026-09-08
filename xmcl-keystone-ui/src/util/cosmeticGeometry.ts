@@ -2,7 +2,7 @@ import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
 
 type Vec = [number, number, number]
 interface Element { from: Vec; to: Vec; rotation?: { axis: 'x' | 'y' | 'z'; origin: Vec; angle: number; rescale?: boolean }; faces: Record<string, { uv?: number[]; rotation?: number; texture?: string | null }> }
-export interface JavaCosmeticModel { textures?: Record<string, string>; elements: Element[]; display?: { head?: { translation?: Vec; rotation?: Vec; scale?: Vec }; minelatino_backpack?: { translation?: Vec; rotation?: Vec; scale?: Vec } } }
+export interface JavaCosmeticModel { texture_size?: [number, number]; textures?: Record<string, string>; elements: Element[]; display?: { head?: { translation?: Vec; rotation?: Vec; scale?: Vec }; minelatino_backpack?: { translation?: Vec; rotation?: Vec; scale?: Vec } } }
 export function textureName(model: JavaCosmeticModel, reference = '') {
   const visited = new Set<string>()
   while (reference.startsWith('#')) {
@@ -15,7 +15,7 @@ export function textureName(model: JavaCosmeticModel, reference = '') {
 }
 const vector = (v: unknown, n: number) => Array.isArray(v) && v.length === n && v.every(x => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) <= 65536)
 
-/** Matches the mod's single-texture Java element format, including per-face UV rotations. */
+/** Java UV coordinates use 16 units, even when Blockbench exports texture_size metadata. */
 export function cosmeticGeometry(model: JavaCosmeticModel) {
   if (!Array.isArray(model?.elements) || !model.elements.length || model.elements.length > 4096) throw new Error('Se requiere un modelo Minecraft Java con 1–4096 elementos')
   const positions: number[] = [], uv: number[] = []

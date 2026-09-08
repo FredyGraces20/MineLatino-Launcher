@@ -1,32 +1,40 @@
 <template>
+  <span ref="root" class="cosmetic-thumb-root">
   <img v-if="dataUrl" :src="dataUrl" :alt="alt" class="cosmetic-thumb">
   <img v-else-if="fallbackSrc" :src="fallbackSrc" :alt="alt" class="cosmetic-thumb" loading="lazy">
   <v-icon v-else size="52" class="cosmetic-thumb-icon">checkroom</v-icon>
+  </span>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { AmbientLight, DirectionalLight, Mesh, MeshStandardMaterial, NearestFilter, PerspectiveCamera, Scene, SRGBColorSpace, Texture, Vector3, WebGLRenderer } from 'three'
-import { cosmeticGeometry, JavaCosmeticModel } from '@/util/cosmeticGeometry'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { AmbientLight, Box3, DirectionalLight, Mesh, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three'
+import { JavaCosmeticModel } from '@/util/cosmeticGeometry'
+import { createCosmeticMesh, disposeCosmeticMesh } from '@/util/cosmeticMaterials'
 import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
 
 const props = defineProps<{ product: CosmeticProduct; alt?: string }>()
 const dataUrl = ref('')
 const fallbackSrc = ref('')
+const root = ref<HTMLElement>()
+let observer: IntersectionObserver | undefined, request: AbortController | undefined
 
-onMounted(() => {
+function prepare() {
+  observer?.disconnect(); request?.abort()
+  dataUrl.value = ''; fallbackSrc.value = ''
   if (!props.product.hasTexture) return
   if (!props.product.hasModel) { fallbackSrc.value = resourceUrl(props.product); return }
   // Lazy render: only build the 3D snapshot when the thumb scrolls into view.
-  const io = new IntersectionObserver(entries => {
+  observer = new IntersectionObserver(entries => {
     if (!entries[0]?.isIntersecting) return
-    io.disconnect()
-    renderSnapshot().catch(() => { fallbackSrc.value = resourceUrl(props.product) })
+    observer?.disconnect()
+    void renderSnapshot().catch(() => { /* Keep a placeholder, never a mismatched texture atlas. */ })
   }, { rootMargin: '200px' })
   // Observe the nearest ancestor or a sentinel; we use the component root element.
-  const el = document.querySelector(`[data-thumb-id="${props.product.id}"]`)
-  if (el) io.observe(el)
-  else renderSnapshot().catch(() => { fallbackSrc.value = resourceUrl(props.product) })
-})
+  if (root.value) observer.observe(root.value)
+}
+onMounted(prepare)
+watch(() => [props.product.id, props.product.resourceVersion, props.product.hasModel, props.product.hasTexture], prepare)
+onBeforeUnmount(() => { observer?.disconnect(); request?.abort() })
 
 async function renderSnapshot() {
   const w = 160, h = 150
@@ -37,15 +45,13 @@ async function renderSnapshot() {
   const renderer = new WebGLRenderer({ canvas, context: gl, antialias: false })
   renderer.setSize(w, h, false)
   renderer.setPixelRatio(1)
+  const active = request = new AbortController(), product = props.product
+  const timeout = setTimeout(() => active.abort(), 15000)
+  let mesh: Mesh | undefined
   try {
-    const [modelRes, texRes] = await Promise.all([
-      fetch(resourceUrl(props.product, true), { credentials: 'omit' }),
-      fetch(resourceUrl(props.product), { credentials: 'omit' }),
-    ])
-    if (!modelRes.ok || !texRes.ok) throw new Error('Fetch failed')
+    const modelRes = await fetch(resourceUrl(product, true), { credentials: 'omit', signal: active.signal })
+    if (!modelRes.ok) throw new Error('Fetch failed')
     const model: JavaCosmeticModel = JSON.parse(await modelRes.text())
-    const blob = await texRes.blob()
-    const bitmap = await createImageBitmap(blob, { imageOrientation: 'flipY' })
     const scene = new Scene()
     const camera = new PerspectiveCamera(35, w / h, 0.1, 500)
     camera.position.set(0, 2, 28)
@@ -54,34 +60,31 @@ async function renderSnapshot() {
     const dir = new DirectionalLight(0xffffff, 0.9)
     dir.position.set(5, 10, 12)
     scene.add(dir)
-    const texture = new Texture(bitmap)
-    texture.minFilter = NearestFilter; texture.magFilter = NearestFilter
-    ;(texture as Texture & { colorSpace: string }).colorSpace = SRGBColorSpace
-    texture.needsUpdate = true
-    const geometry = cosmeticGeometry(model)
-    const mesh = new Mesh(geometry, new MeshStandardMaterial({ map: texture, alphaTest: 0.1, roughness: 1 }))
+    mesh = await createCosmeticMesh(product, model, active.signal)
+    if (active.signal.aborted || request !== active) return
     // Rotate so the cosmetic front faces the camera (same as the preview).
     mesh.rotation.y = Math.PI
     scene.add(mesh)
     // Auto-fit: compute bounding box and adjust camera distance.
-    geometry.computeBoundingBox()
-    const box = geometry.boundingBox!
+    const box = new Box3().setFromObject(mesh)
+    const center = box.getCenter(new Vector3())
     const size = box.getSize(new Vector3())
     const maxDim = Math.max(size.x, size.y, size.z) || 1
     const dist = maxDim / (2 * Math.tan((camera.fov / 2) * Math.PI / 180)) * 1.6
-    camera.position.set(0, size.y * 0.15, dist)
-    camera.lookAt(0, 0, 0)
+    camera.position.set(center.x, center.y + size.y * 0.15, center.z + dist)
+    camera.lookAt(center)
     renderer.render(scene, camera)
     dataUrl.value = canvas.toDataURL('image/png')
-    // Dispose GPU resources immediately.
-    geometry.dispose(); texture.dispose(); (mesh.material as MeshStandardMaterial).dispose()
-    bitmap.close()
   } finally {
+    clearTimeout(timeout)
+    if (mesh) disposeCosmeticMesh(mesh)
     renderer.dispose()
+    renderer.forceContextLoss()
   }
 }
 </script>
 <style scoped>
+.cosmetic-thumb-root { display: inline-flex; align-items: center; justify-content: center; }
 .cosmetic-thumb { max-width: 85px; max-height: 90px; image-rendering: pixelated; object-fit: contain; }
 .cosmetic-thumb-icon { color: var(--ml-dim, #b4b8c3); }
 </style>
