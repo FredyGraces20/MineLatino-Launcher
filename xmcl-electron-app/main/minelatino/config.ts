@@ -1,5 +1,7 @@
 import type {
   MineLatinoAuthMode,
+  MineLatinoAutoMod,
+  MineLatinoAutoModVersion,
   MineLatinoConfig,
   MineLatinoLink,
   MineLatinoLoader,
@@ -94,6 +96,7 @@ export const FALLBACK_CONFIG: MineLatinoConfig = {
     message: '',
   },
   minLauncherVersion: '',
+  autoMods: [],
 }
 
 function asObject(value: unknown, fallback: Record<string, unknown> = {}): Record<string, unknown> {
@@ -173,6 +176,43 @@ function asPreset(value: unknown): MineLatinoPreset | undefined {
     icon: asString(source.icon) || undefined,
     recommended: asBoolean(source.recommended, false),
   }
+}
+
+function asAutoModVersion(value: unknown): MineLatinoAutoModVersion | undefined {
+  const source = asObject(value)
+  const modVersion = asString(source.modVersion).trim()
+  const loaderRaw = asString(source.loader).trim()
+  const downloadUrl = asString(source.downloadUrl).trim()
+  const sha1 = asString(source.sha1).trim()
+  const fileName = asString(source.fileName).trim()
+  const validLoaders = ['fabric', 'forge', 'neoforge'] as const
+  const loader = validLoaders.find(l => l === loaderRaw)
+  if (!modVersion || !loader || !downloadUrl || !sha1 || !fileName) return undefined
+  const minecraftVersions = asArray(source.minecraftVersions)
+    .map(v => asString(v).trim())
+    .filter(v => v.length > 0)
+  if (minecraftVersions.length === 0) return undefined
+  return {
+    modVersion,
+    minecraftVersions,
+    loader,
+    downloadUrl,
+    sha1,
+    fileName,
+    fileSize: asNumber(source.fileSize, 0),
+  }
+}
+
+function asAutoMod(value: unknown): MineLatinoAutoMod | undefined {
+  const source = asObject(value)
+  const id = asString(source.id).trim()
+  const name = asString(source.name).trim()
+  if (!id || !name) return undefined
+  const versions = asArray(source.versions)
+    .map(asAutoModVersion)
+    .filter((v): v is MineLatinoAutoModVersion => !!v)
+  if (versions.length === 0) return undefined
+  return { id, name, versions }
 }
 
 /**
@@ -257,5 +297,8 @@ export function normalizeConfig(raw: unknown): MineLatinoConfig {
       message: asString(maintenance.message),
     },
     minLauncherVersion: asString(source.minLauncherVersion),
+    autoMods: asArray(source.autoMods)
+      .map(asAutoMod)
+      .filter((mod): mod is MineLatinoAutoMod => !!mod),
   }
 }

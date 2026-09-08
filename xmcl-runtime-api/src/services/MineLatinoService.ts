@@ -103,7 +103,7 @@ export interface MineLatinoConfig {
     /** Optional human label, e.g. the name of the website section. */
     sourceLabel?: string
     /**
-     * Send "Leer más" to the system browser instead of an in-launcher window.
+     * Send "Leer m\u00e1s" to the system browser instead of an in-launcher window.
      * Useful when the website rejects embedded webviews.
      */
     openInExternalBrowser?: boolean
@@ -120,6 +120,30 @@ export interface MineLatinoConfig {
   }
   /** Launcher versions below this are told to update before playing. */
   minLauncherVersion: string
+  /** Mods the launcher auto-installs into every matching instance. */
+  autoMods: MineLatinoAutoMod[]
+}
+
+/**
+ * A mod the launcher installs automatically into every matching instance.
+ * Unlike presets (which only apply at creation time and resolve from Modrinth),
+ * autoMods are direct-download JARs placed into existing and new instances
+ * whose Minecraft version and loader match.
+ */
+export interface MineLatinoAutoMod {
+  id: string
+  name: string
+  versions: MineLatinoAutoModVersion[]
+}
+
+export interface MineLatinoAutoModVersion {
+  modVersion: string
+  minecraftVersions: string[]
+  loader: 'fabric' | 'forge' | 'neoforge'
+  downloadUrl: string
+  sha1: string
+  fileName: string
+  fileSize: number
 }
 
 export interface MineLatinoNewsEmbedField {
@@ -334,6 +358,13 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
    * an empty array on failure.
    */
   getPlaytimeLeaderboard(): Promise<MineLatinoPlaytimeLeaderboardEntry[]>
+
+  /**
+   * Ensures every matching instance has the latest autoMods installed.
+   * Called automatically after each config refresh and can also be triggered
+   * manually (e.g. right after creating a new instance).
+   */
+  syncAutoMods(): Promise<void>
 }
 
 export const MineLatinoServiceKey: ServiceKey<MineLatinoService> = 'MineLatinoService'

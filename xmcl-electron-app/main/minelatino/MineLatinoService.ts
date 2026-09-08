@@ -1,7 +1,9 @@
-import { readFile, outputJson } from 'fs-extra'
+import { readFile, outputJson, readdir } from 'fs-extra'
 import { join } from 'path'
 import {
   MineLatinoServiceKey,
+  type MineLatinoAutoMod,
+  type MineLatinoAutoModVersion,
   type MineLatinoConfig,
   type MineLatinoNewsEmbed,
   type MineLatinoNewsItem,
@@ -21,6 +23,7 @@ import { Inject, LauncherAppKey, type LauncherApp } from '@xmcl/runtime/app'
 import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
 import { LaunchService } from '~/launch'
 import { InstanceService } from '~/instance'
+import { InstanceInstallService } from '~/instanceIO'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { MineLatinoWebWindows } from './webWindow'
 
@@ -322,6 +325,10 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       this.#configFetchedAt = Date.now()
       await this.#writeJson('config.json', { fetchedAt: this.#configFetchedAt, config: this.#config })
       this.emit('config', this.#config)
+      // After a config refresh, ensure autoMods are installed in matching
+      // instances. Fire-and-forget: the sync runs in the background and logs
+      // its own failures.
+      void this.syncAutoMods()
     }
     catch (error) {
       // The cached (or bundled) config stays in place; no event, no throw.
@@ -546,6 +553,104 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     } catch (err) {
       this.warn(`MineLatino leaderboard fetch failed: ${(err as Error).message}`)
       return []
+    }
+  }
+
+  /**
+   * Determine which loader an instance uses, matching the autoMod vocabulary.
+   * Returns undefined for vanilla or unknown loaders.
+   */
+  #instanceLoader(runtime: Record<string, unknown>): MineLatinoAutoModVersion['loader'] | undefined {
+    if (runtime.fabricLoader || runtime.quiltLoader) return 'fabric'
+    if (runtime.neoForged) return 'neoforge'
+    if (runtime.forge) return 'forge'
+    return undefined
+  }
+
+  /**
+   * Read the JAR filenames already present in an instance's mods/ directory.
+   * Returns an empty set when the directory does not exist or is unreadable.
+   */
+  async #instanceModFiles(instancePath: string): Promise<Set<string>> {
+    try {
+      const entries = await readdir(join(instancePath, 'mods'))
+      return new Set(entries.filter(e => e.endsWith('.jar')).map(e => e.toLowerCase()))
+    } catch {
+      return new Set()
+    }
+  }
+
+  /**
+   * Find the best matching autoMod version for an instance's MC version and
+   * loader. Prefers the newest modVersion when multiple entries match.
+   */
+  #findMatchingVersion(
+    mod: MineLatinoAutoMod,
+    minecraft: string,
+    loader: MineLatinoAutoModVersion['loader'],
+  ): MineLatinoAutoModVersion | undefined {
+    const matches = mod.versions.filter(
+      v => v.loader === loader && v.minecraftVersions.includes(minecraft),
+    )
+    // Return the last entry (assumed newest) when multiple match.
+    return matches.length > 0 ? matches[matches.length - 1] : undefined
+  }
+
+  /**
+   * Ensure every matching instance has the latest autoMods installed.
+   *
+   * Runs after each config refresh so a backend operator can push a new mod
+   * version and every player's launcher picks it up within minutes. Also called
+   * right after instance creation so a brand-new profile gets the mod
+   * immediately instead of waiting for the next refresh cycle.
+   *
+   * The check is fast when nothing is missing: it only reads the mods/
+   * directory listing and compares file names. Downloads happen only when a JAR
+   * is absent or an older version is detected.
+   */
+  async syncAutoMods(): Promise<void> {
+    const autoMods = this.#config.autoMods
+    if (!autoMods || autoMods.length === 0) return
+
+    const instanceService = await this.app.registry.get(InstanceService)
+    const installService = await this.app.registry.get(InstanceInstallService)
+    const instances = instanceService.state.all
+
+    for (const [instancePath, instance] of Object.entries(instances)) {
+      const runtime = (instance as Record<string, unknown>).runtime as Record<string, unknown> | undefined
+      if (!runtime) continue
+      const minecraft = asString(runtime.minecraft)
+      const loader = this.#instanceLoader(runtime)
+      if (!minecraft || !loader) continue
+
+      const existingMods = await this.#instanceModFiles(instancePath)
+
+      for (const mod of autoMods) {
+        const match = this.#findMatchingVersion(mod, minecraft, loader)
+        if (!match) continue
+
+        // Already installed with the expected file name — skip.
+        if (existingMods.has(match.fileName.toLowerCase())) continue
+
+        // Build an InstanceFile for the download pipeline.
+        const instanceFile = {
+          path: `mods/${match.fileName}`,
+          hashes: { sha1: match.sha1 },
+          downloads: [match.downloadUrl],
+          size: match.fileSize || undefined,
+        }
+
+        try {
+          this.log(`[autoMods] Installing ${mod.name} ${match.modVersion} into ${instance.name || instancePath}`)
+          await installService.installInstanceFiles({
+            path: instancePath,
+            oldFiles: [],
+            files: [instanceFile],
+          })
+        } catch (err) {
+          this.warn(`[autoMods] Failed to install ${mod.name} into ${instance.name || instancePath}: ${(err as Error).message}`)
+        }
+      }
     }
   }
 }

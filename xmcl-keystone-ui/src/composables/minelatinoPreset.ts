@@ -13,6 +13,7 @@ import type {
 import {
   InstanceInstallServiceKey,
   InstanceServiceKey,
+  MineLatinoServiceKey,
   VersionMetadataServiceKey,
 } from '@xmcl/runtime-api'
 import { InjectionKey, Ref, computed, shallowRef } from 'vue'
@@ -209,6 +210,7 @@ export function useMineLatinoPreset(
   const { instances, selectedInstance } = injection(kInstances)
   const { createInstance } = useService(InstanceServiceKey)
   const { installInstanceFiles } = useService(InstanceInstallServiceKey)
+  const { syncAutoMods } = useService(MineLatinoServiceKey)
   const metadata = useService(VersionMetadataServiceKey)
 
   const creating = shallowRef('')
@@ -285,6 +287,9 @@ export function useMineLatinoPreset(
         { 'instance.edition': 'java', 'minelatino.preset': preset.id },
       )
       selectedInstance.value = path
+      // Install autoMods into the new instance immediately so the player does
+      // not have to wait for the next config refresh cycle.
+      void syncAutoMods()
       // Only the success is toasted: the player may well have navigated away
       // during the download. Failures and unresolved mods stay in `error` /
       // `skipped` for the preset panel to render, so the message is not shown
