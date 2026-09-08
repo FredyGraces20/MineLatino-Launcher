@@ -24,6 +24,7 @@ import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
 import { LaunchService } from '~/launch'
 import { InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
+import { VersionMetadataService } from '@xmcl/runtime/install'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { MineLatinoWebWindows } from './webWindow'
 
@@ -328,7 +329,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       // After a config refresh, ensure autoMods are installed in matching
       // instances. Fire-and-forget: the sync runs in the background and logs
       // its own failures.
-      void this.syncAutoMods()
+      void this.#ensureDefaultInstanceThenSync()
     }
     catch (error) {
       // The cached (or bundled) config stays in place; no event, no throw.
@@ -594,6 +595,54 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     )
     // Return the last entry (assumed newest) when multiple match.
     return matches.length > 0 ? matches[matches.length - 1] : undefined
+  }
+
+  /**
+   * On a fresh install (zero instances), auto-create the recommended preset
+   * so new users can press Play immediately. Then sync autoMods.
+   */
+  async #ensureDefaultInstanceThenSync() {
+    try {
+      const instanceService = await this.app.registry.get(InstanceService)
+      const instances = instanceService.state.all
+      if (Object.keys(instances).length > 0) {
+        void this.syncAutoMods()
+        return
+      }
+      const preset = this.#config.presets.find(p => p.recommended) ?? this.#config.presets[0]
+      if (!preset) {
+        this.warn('[autoInstance] No presets configured; skipping auto-creation.')
+        return
+      }
+      this.log(`[autoInstance] Fresh install detected — creating default profile "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
+      const runtime = { minecraft: preset.minecraftVersion } as { minecraft: string, fabricLoader?: string }
+      if (preset.loader === 'fabric') {
+        const metadata = await this.app.registry.get(VersionMetadataService)
+        const fabricVersions = await metadata.getFabricVersions()
+        if (!fabricVersions.gameVersions.includes(preset.minecraftVersion)) {
+          this.warn(`[autoInstance] Fabric does not support Minecraft ${preset.minecraftVersion}; skipping.`)
+          return
+        }
+        const loaderVersion = fabricVersions.loaderVersions[0]?.version
+        if (!loaderVersion) {
+          this.warn('[autoInstance] No Fabric loader version available; skipping.')
+          return
+        }
+        runtime.fabricLoader = loaderVersion
+      }
+      const path = await instanceService.createInstance({
+        name: preset.name,
+        description: preset.description ?? '',
+        runtime,
+        resourcepacks: true,
+        shaderpacks: true,
+      })
+      this.log(`[autoInstance] Created instance at ${path}`)
+      await this.syncAutoMods()
+    } catch (error) {
+      this.warn(`[autoInstance] Failed to auto-create default instance: ${(error as Error).message}`)
+      void this.syncAutoMods()
+    }
   }
 
   /**

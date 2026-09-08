@@ -88,7 +88,7 @@ export const FALLBACK_CONFIG: MineLatinoConfig = {
     loader: 'fabric',
     mods: [],
     icon: 'star',
-    recommended: true,
+    recommended: false,
   }, {
     id: 'minelatino-1-21-11',
     name: 'MineLatino 1.21.11',
@@ -97,7 +97,7 @@ export const FALLBACK_CONFIG: MineLatinoConfig = {
     loader: 'fabric',
     mods: [],
     icon: 'star',
-    recommended: false,
+    recommended: true,
   }],
   links: [],
   maintenance: {
