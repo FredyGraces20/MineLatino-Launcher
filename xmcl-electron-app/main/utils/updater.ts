@@ -82,22 +82,46 @@ async function downloadAsarUpdate(
     )
   }
 
+  const sha256Url = url + '.sha256'
+  const sha256Response = await app.fetch(sha256Url, { signal: options?.abortSignal })
+  if (!sha256Response.ok) {
+    throw new AnyError(
+      'UpdateAsarError',
+      `The release ${updateInfo.name} does not publish a readable SHA-256 checksum`,
+      {},
+      { url: sha256Url, status: sha256Response.status },
+    )
+  }
+  const expectedSha256 = (await sha256Response.text()).trim().toLowerCase()
+  if (!/^[a-f0-9]{64}$/.test(expectedSha256)) {
+    throw new AnyError(
+      'UpdateAsarError',
+      `The release ${updateInfo.name} publishes an invalid SHA-256 checksum`,
+      {},
+      { url: sha256Url },
+    )
+  }
+
   // Skip the download entirely if the pending file already matches the
   // published checksum.
-  try {
-    const sha256Response = await app.fetch(url + '.sha256', { signal: options?.abortSignal })
-    const sha256 = sha256Response.ok ? (await sha256Response.text()).trim() : ''
-    const actual = await checksum(destination, 'sha256').catch(() => '')
-    if (sha256 && sha256 === actual) {
-      return
-    }
-  } catch {
-    // Ignore — fall through to download.
+  const pendingSha256 = await checksum(destination, 'sha256').catch(() => '')
+  if (pendingSha256.toLowerCase() === expectedSha256) {
+    return
   }
 
   // Prefers the gzipped sibling when the release publishes one.
   try {
     await downloadGzAsar(app, url, destination, options)
+    const downloadedSha256 = await checksum(destination, 'sha256').catch(() => '')
+    if (downloadedSha256.toLowerCase() !== expectedSha256) {
+      await unlinkAsync(destination).catch(() => {})
+      throw new AnyError(
+        'UpdateAsarError',
+        `The downloaded ASAR for ${updateInfo.name} failed SHA-256 verification`,
+        {},
+        { expected: expectedSha256, actual: downloadedSha256 || 'unreadable' },
+      )
+    }
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') return
     throw Object.assign(e as Error, { name: 'UpdateAsarError', url })
