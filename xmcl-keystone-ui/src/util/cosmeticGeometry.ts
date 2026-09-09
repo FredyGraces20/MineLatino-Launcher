@@ -56,6 +56,8 @@ export function cosmeticGeometry(model: JavaCosmeticModel) {
       for (const i of [0,1,2,0,2,3]) {
         positions.push(...vertices[i].toArray())
         const index = (i + turn / 90) % 4
+        // Minecraft Java model UVs always use a virtual 16x16 grid. Blockbench's
+        // texture_size describes the source image and must not rescale face UVs.
         uv.push(rect[index < 2 ? 0 : 2] / 16, 1 - rect[index === 0 || index === 3 ? 1 : 3] / 16)
       }
     }
