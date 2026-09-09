@@ -29,13 +29,18 @@ export function disposeCosmeticMesh(mesh: Mesh) {
   }
 }
 
-export async function createCosmeticMesh(product: CosmeticProduct, model: JavaCosmeticModel, signal: AbortSignal) {
+export async function createCosmeticMesh(
+  product: CosmeticProduct,
+  model: JavaCosmeticModel,
+  signal: AbortSignal,
+  resourceOptions: Omit<RequestInit, 'signal'> = {},
+) {
   const geometry = cosmeticGeometry(model), names: string[] = geometry.userData.textureNames
   const materials: MeshStandardMaterial[] = [], updates: (() => void)[] = []
   try {
     if (names.length > 32) throw new Error('Demasiadas texturas')
     const base = resourceUrl(product)
-    const response = await fetch(`${base}&type=manifest`, { signal, credentials: 'omit' })
+    const response = await fetch(`${base}&type=manifest`, { credentials: 'omit', ...resourceOptions, signal })
     let files: { name: string; hasMcmeta: boolean }[] = []
     try { files = (await response.json()).files; if (!Array.isArray(files)) throw new Error() } catch {
       if (names.length > 1) throw new Error('Actualiza el servicio: falta el manifiesto de texturas')
@@ -45,13 +50,13 @@ export async function createCosmeticMesh(product: CosmeticProduct, model: JavaCo
       const file = files.find(f => f.name === name)
       if (!file && names.length > 1) throw new Error(`Sube la textura con el nombre ${name}`)
       const url = file ? `${base}&file=${encodeURIComponent(name)}` : base
-      const png = await fetch(url, { signal, credentials: 'omit' })
+      const png = await fetch(url, { credentials: 'omit', ...resourceOptions, signal })
       if (!png.ok) throw new Error(`No se pudo descargar ${name} (${png.status})`)
       const blob = await png.blob()
       if (blob.size > 2 * 1024 * 1024) throw new Error('Textura demasiado grande')
       let meta = null
       if (file?.hasMcmeta) {
-        const response = await fetch(`${url}&type=mcmeta`, { signal, credentials: 'omit' })
+        const response = await fetch(`${url}&type=mcmeta`, { credentials: 'omit', ...resourceOptions, signal })
         if (!response.ok) throw new Error(`No se pudo descargar la animación de ${name}`)
         meta = await response.json()
       }
