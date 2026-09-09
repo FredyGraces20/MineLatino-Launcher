@@ -1,6 +1,7 @@
 import { readFile, outputJson, readdir, remove } from 'fs-extra'
 import { join } from 'path'
 import {
+  AUTHORITY_MICROSOFT,
   MineLatinoServiceKey,
   MarketType,
   type MineLatinoAutoMod,
@@ -20,6 +21,7 @@ import {
   type MineLatinoUpdatesResult,
   type MineLatinoWebWindowInfo,
   type MineLatinoWebWindowOptions,
+  type UserProfile,
 } from '@xmcl/runtime-api'
 import { Inject, LauncherAppKey, type LauncherApp } from '@xmcl/runtime/app'
 import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
@@ -27,6 +29,7 @@ import { LaunchService } from '~/launch'
 import { InstanceModsService, InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
 import { VersionMetadataService } from '@xmcl/runtime/install'
+import { kUserTokenStorage } from '~/user'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { findPresetInstanceCandidate } from './presetInstance'
 import { MineLatinoWebWindows } from './webWindow'
@@ -178,6 +181,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   #refreshing: Promise<void> | undefined
   #timer: NodeJS.Timeout | undefined
   #windows: MineLatinoWebWindows
+  #playtimeSessions = new Map<string, Promise<string | undefined>>()
 
   constructor(@Inject(LauncherAppKey) app: LauncherApp) {
     super(app, async () => {
@@ -189,19 +193,17 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       void this.#refresh()
       this.#timer = setInterval(() => { void this.#refresh() }, REFRESH_INTERVAL_MS)
 
-      // Auto-report playtime after each Minecraft session ends.
+      // The backend measures playtime between a premium-authenticated start
+      // and its one-time end token. It never trusts a name or duration sent by
+      // the client.
       const launchService = await this.app.registry.get(LaunchService)
-      const instanceService = await this.app.registry.get(InstanceService)
+      launchService.on('minecraft-start', (options) => {
+        this.#playtimeSessions.set(options.launchId, this.#openPlaytimeSession(options.user))
+      })
       launchService.on('minecraft-exit', (options) => {
-        if (!options.gameDirectory || !options.duration) return
-        const user = options.user
-        if (!user?.selectedProfile || !user.profiles) return
-        const profile = user.profiles[user.selectedProfile]
-        const name = profile?.name || user.username
-        if (!name) return
-        const instance = instanceService.state.all[options.gameDirectory]
-        const playtime = instance ? instance.playtime : 0
-        void this.reportPlaytime(name, playtime)
+        const pending = this.#playtimeSessions.get(options.launchId)
+        this.#playtimeSessions.delete(options.launchId)
+        if (pending) void pending.then(token => token ? this.#closePlaytimeSession(token) : undefined)
       })
     })
     this.#windows = new MineLatinoWebWindows(
@@ -517,18 +519,55 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     return this.#windows.list()
   }
 
-  async reportPlaytime(name: string, playtime: number): Promise<void> {
-    if (!this.#backendUrl) return
+  async #openPlaytimeSession(user: UserProfile): Promise<string | undefined> {
+    if (!this.#backendUrl || user.authority !== AUTHORITY_MICROSOFT || !user.selectedProfile) return
+    const profile = user.profiles[user.selectedProfile]
+    if (!profile?.name) return
     try {
-      await this.app.fetch(`${this.#backendUrl}/api/playtime/report`, {
+      const tokenStorage = await this.app.registry.get(kUserTokenStorage)
+      const accessToken = await tokenStorage.get(user)
+      if (!accessToken) return
+      const challengeResponse = await this.app.fetch(`${this.#backendUrl}/api/playtime/challenge`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': this.app.userAgent,
-        },
-        body: JSON.stringify({ name, playtime }),
+        headers: { 'Content-Type': 'application/json', 'User-Agent': this.app.userAgent },
+        body: JSON.stringify({ username: profile.name }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       })
+      if (!challengeResponse.ok) return
+      const challenge = asObject(await challengeResponse.json())
+      const challengeId = asString(challenge.challengeId)
+      const serverId = asString(challenge.serverId)
+      if (!challengeId || !serverId) return
+      const joinResponse = await this.app.fetch('https://sessionserver.mojang.com/session/minecraft/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken, selectedProfile: user.selectedProfile, serverId }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+      if (!joinResponse.ok) return
+      const sessionResponse = await this.app.fetch(`${this.#backendUrl}/api/playtime/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': this.app.userAgent },
+        body: JSON.stringify({ challengeId }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+      if (!sessionResponse.ok) return
+      return asString(asObject(await sessionResponse.json()).token) || undefined
+    } catch (err) {
+      this.warn(`MineLatino playtime session could not start: ${(err as Error).message}`)
+      return undefined
+    }
+  }
+
+  async #closePlaytimeSession(token: string): Promise<void> {
+    if (!this.#backendUrl) return
+    try {
+      const response = await this.app.fetch(`${this.#backendUrl}/api/playtime/report`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'User-Agent': this.app.userAgent },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+      if (!response.ok) this.warn(`MineLatino playtime report rejected: HTTP ${response.status}`)
     } catch (err) {
       this.warn(`MineLatino playtime report failed: ${(err as Error).message}`)
     }

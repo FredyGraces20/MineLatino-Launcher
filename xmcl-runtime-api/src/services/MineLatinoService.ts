@@ -348,12 +348,6 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
   getWebWindows(): Promise<MineLatinoWebWindowInfo[]>
 
   /**
-   * Reports the player's accumulated playtime to the backend leaderboard.
-   * Called automatically after each Minecraft session ends.
-   */
-  reportPlaytime(name: string, playtime: number): Promise<void>
-
-  /**
    * Fetches the playtime leaderboard from the backend. Never rejects: returns
    * an empty array on failure.
    */
