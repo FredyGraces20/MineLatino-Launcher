@@ -773,8 +773,9 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
    *
    * The check is fast when nothing is missing: it only reads the mods/
    * directory listing and compares file names. Downloads happen only when a JAR
-   * is absent or an older version is detected. Before installing the new JAR,
-   * older versions of the same mod are removed from the mods/ directory.
+   * is absent or an older version is detected. The installer downloads and
+   * verifies the replacement in its workspace first. Only after that succeeds
+   * are older versions removed from the mods/ directory.
    */
   async syncAutoMods(): Promise<void> {
     const autoMods = this.#config.autoMods
@@ -797,24 +798,13 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         const match = this.#findMatchingVersion(mod, minecraft, loader)
         if (!match) continue
 
-        // Already installed with the expected file name — skip.
-        if (existingMods.has(match.fileName.toLowerCase())) continue
-
-        // Remove older JARs of the same mod before installing the new one.
+        const expectedFile = match.fileName.toLowerCase()
         const prefix = `${mod.id}-${loader}-${minecraft}-`
-        for (const file of existingMods) {
-          if (file !== match.fileName.toLowerCase() && file.startsWith(prefix) && file.endsWith('.jar')) {
-            try {
-              const oldPath = join(instancePath, 'mods', file)
-              await remove(oldPath)
-              this.log(`[autoMods] Removed old ${file} from ${instance.name || instancePath}`)
-            } catch (err) {
-              this.warn(`[autoMods] Failed to remove old ${file}: ${(err as Error).message}`)
-            }
-          }
-        }
+        const oldFiles = [...existingMods].filter(file =>
+          file !== expectedFile && file.startsWith(prefix) && file.endsWith('.jar'))
 
-        // Build an InstanceFile for the download pipeline.
+        // Build an InstanceFile for the transactional download pipeline. It uses
+        // a separate workspace and validates SHA-1 before committing this path.
         const instanceFile = {
           path: `mods/${match.fileName}`,
           hashes: { sha1: match.sha1 },
@@ -822,15 +812,34 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
           size: match.fileSize || undefined,
         }
 
-        try {
-          this.log(`[autoMods] Installing ${mod.name} ${match.modVersion} into ${instance.name || instancePath}`)
-          await installService.installInstanceFiles({
-            path: instancePath,
-            oldFiles: [],
-            files: [instanceFile],
-          })
-        } catch (err) {
-          this.warn(`[autoMods] Failed to install ${mod.name} into ${instance.name || instancePath}: ${(err as Error).message}`)
+        if (!existingMods.has(expectedFile)) {
+          try {
+            this.log(`[autoMods] Downloading and verifying ${mod.name} ${match.modVersion} for ${instance.name || instancePath}`)
+            await installService.installInstanceFiles({
+              path: instancePath,
+              oldFiles: [],
+              files: [instanceFile],
+            })
+            existingMods.add(expectedFile)
+            this.log(`[autoMods] Installed ${match.fileName}; old versions can now be removed`)
+          } catch (err) {
+            // Keep every old JAR untouched when download, size/hash validation,
+            // or the final transactional commit fails.
+            this.warn(`[autoMods] Failed to install ${mod.name}; keeping the previous version: ${(err as Error).message}`)
+            continue
+          }
+        }
+
+        // The expected JAR is now present. Cleanup happens afterwards, and a
+        // failed cleanup is retried on the next sync instead of risking no mod.
+        for (const file of oldFiles) {
+          try {
+            await remove(join(instancePath, 'mods', file))
+            existingMods.delete(file)
+            this.log(`[autoMods] Removed old ${file} from ${instance.name || instancePath}`)
+          } catch (err) {
+            this.warn(`[autoMods] Failed to remove old ${file}: ${(err as Error).message}`)
+          }
         }
       }
     }
