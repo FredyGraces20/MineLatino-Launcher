@@ -133,10 +133,21 @@
             variant="tonal"
             :color="accentColor || 'primary'"
             data-testid="minelatino-add-version"
-            @click="showAddInstance()"
+            @click="openCreateProfile"
           >
             <v-icon start size="16" aria-hidden="true"> add </v-icon>
             {{ t('MineLatinoPlay.addVersion') }}
+          </v-btn>
+          <v-btn
+            block
+            size="small"
+            variant="tonal"
+            :color="accentColor || 'primary'"
+            :disabled="!selected"
+            @click="openMods"
+          >
+            <v-icon start size="16" aria-hidden="true"> extension </v-icon>
+            {{ t('MineLatinoShell.profileContent') }}
           </v-btn>
           <v-btn
             block
@@ -150,15 +161,41 @@
             </v-icon>
             {{ t('MineLatinoShell.profileSettings') }}
           </v-btn>
+          <v-btn
+            block
+            size="small"
+            variant="text"
+            color="error"
+            :disabled="!selected || deleting"
+            :loading="deleting"
+            @click="deleteDialog = true"
+          >
+            <v-icon start size="16" aria-hidden="true"> delete </v-icon>
+            {{ t('MineLatinoProfiles.delete') }}
+          </v-btn>
         </div>
       </div>
     </v-navigation-drawer>
+
+    <MineLatinoCreateProfileDialog
+      v-model="createDialog"
+      @created="onProfileCreated"
+    />
+
+    <SimpleDialog
+      v-model="deleteDialog"
+      :title="t('MineLatinoProfiles.deleteTitle')"
+      :width="400"
+      @confirm="deleteSelectedProfile"
+    >
+      {{ t('MineLatinoProfiles.deleteConfirm', { name: selected?.name || '' }) }}
+    </SimpleDialog>
   </aside>
 </template>
 <script lang="ts" setup>
+import MineLatinoCreateProfileDialog from '@/components/MineLatinoCreateProfileDialog.vue'
 import PlayerAvatar from '@/components/PlayerAvatar.vue'
-import { useDialog } from '@/composables/dialog'
-import { AddInstanceDialogKey } from '@/composables/instanceTemplates'
+import SimpleDialog from '@/components/SimpleDialog.vue'
 import { kInstances } from '@/composables/instances'
 import { kMineLatino } from '@/composables/minelatino'
 import { kUserContext } from '@/composables/user'
@@ -171,12 +208,14 @@ import type { InstanceData } from '@xmcl/instance'
 const { t } = useI18n()
 const router = useRouter()
 const { accentColor } = injection(kMineLatino)
-const { instances, selectedInstance } = injection(kInstances)
+const { instances, selectedInstance, remove } = injection(kInstances)
 const { userProfile, gameProfile } = injection(kUserContext)
 const userMenu = useUserMenuControl()
-const { show: showAddInstance } = useDialog(AddInstanceDialogKey)
 
 const drawer = ref(false)
+const createDialog = ref(false)
+const deleteDialog = ref(false)
+const deleting = ref(false)
 
 const skinUrl = computed(() => gameProfile.value.textures.SKIN.url)
 const isSignedIn = computed(() => !!userProfile.value.id)
@@ -204,6 +243,40 @@ function selectProfile(path: string) {
 function onProfileSettings() {
   drawer.value = false
   router.push('/base-setting')
+}
+
+async function openCreateProfile() {
+  drawer.value = false
+  // Let the temporary drawer finish handling the current click before the
+  // teleported dialog opens. Otherwise the drawer scrim can close the dialog
+  // in the same event cycle, making the content step appear to be missing.
+  await nextTick()
+  createDialog.value = true
+}
+
+function onProfileCreated(path: string) {
+  selectedInstance.value = path
+  router.push('/minelatino/jugar')
+}
+
+function openMods() {
+  if (!selected.value) return
+  drawer.value = false
+  router.push({ path: '/mods', query: { source: 'remote' } })
+}
+
+async function deleteSelectedProfile() {
+  const target = selected.value
+  if (!target || deleting.value) return
+  deleting.value = true
+  try {
+    await remove(target.path, true)
+    deleteDialog.value = false
+    drawer.value = false
+    router.push('/minelatino/jugar')
+  } finally {
+    deleting.value = false
+  }
 }
 
 function iconOf(inst: InstanceData) {

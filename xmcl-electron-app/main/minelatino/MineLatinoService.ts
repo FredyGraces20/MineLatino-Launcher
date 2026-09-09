@@ -2,6 +2,7 @@ import { readFile, outputJson, readdir, remove } from 'fs-extra'
 import { join } from 'path'
 import {
   MineLatinoServiceKey,
+  MarketType,
   type MineLatinoAutoMod,
   type MineLatinoAutoModVersion,
   type MineLatinoConfig,
@@ -9,6 +10,7 @@ import {
   type MineLatinoNewsItem,
   type MineLatinoNewsResult,
   type MineLatinoPlaytimeLeaderboardEntry,
+  type MineLatinoPreset,
   type MineLatinoService as IMineLatinoService,
   type MineLatinoStoreCategory,
   type MineLatinoStoreProduct,
@@ -22,7 +24,7 @@ import {
 import { Inject, LauncherAppKey, type LauncherApp } from '@xmcl/runtime/app'
 import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
 import { LaunchService } from '~/launch'
-import { InstanceService } from '~/instance'
+import { InstanceModsService, InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
 import { VersionMetadataService } from '@xmcl/runtime/install'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
@@ -597,15 +599,78 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     return matches.length > 0 ? matches[matches.length - 1] : undefined
   }
 
+  /** Resolve and install the Modrinth starter set declared by a preset. */
+  async #installPresetMods(preset: MineLatinoPreset, instancePath: string) {
+    if (preset.mods.length === 0) return
+
+    const resolved = await Promise.all(preset.mods.map(async (mod) => {
+      try {
+        const params = new URLSearchParams({
+          game_versions: JSON.stringify([preset.minecraftVersion]),
+          loaders: JSON.stringify([preset.loader]),
+        })
+        const response = await this.app.fetch(
+          `https://api.modrinth.com/v2/project/${encodeURIComponent(mod.projectId)}/version?${params}`,
+          {
+            headers: { 'User-Agent': this.app.userAgent, Accept: 'application/json' },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          },
+        )
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const body = await response.json()
+        const versions = Array.isArray(body)
+          ? body.map(asObject).filter(version => asString(version.id))
+          : []
+        const selected = mod.version
+          ? versions.find(version => asString(version.id) === mod.version || asString(version.version_number) === mod.version)
+          : versions.find(version => version.featured === true && asString(version.version_type) === 'release')
+            ?? versions.find(version => asString(version.version_type) === 'release')
+            ?? versions[0]
+        const versionId = asString(selected?.id)
+        if (!versionId) throw new Error('no compatible release')
+        return { projectId: mod.projectId, versionId }
+      } catch (error) {
+        this.warn(`[autoInstance] Could not resolve starter mod ${mod.projectId}: ${(error as Error).message}`)
+        return undefined
+      }
+    }))
+
+    const versions = resolved.filter((entry): entry is { projectId: string, versionId: string } => !!entry)
+    if (versions.length === 0) {
+      this.warn('[autoInstance] No starter mods could be resolved; the profile remains usable.')
+      return
+    }
+
+    try {
+      const modsService = await this.app.registry.get(InstanceModsService)
+      await modsService.installFromMarket({
+        market: MarketType.Modrinth,
+        version: versions.map(({ versionId }) => ({ versionId })),
+        instancePath,
+      })
+      this.log(`[autoInstance] Installed ${versions.length}/${preset.mods.length} starter mods into ${instancePath}`)
+    } catch (error) {
+      // The instance and the cosmetics auto-mod are still useful if Modrinth is
+      // temporarily unavailable. The catalog lets the player retry later.
+      this.warn(`[autoInstance] Failed to install starter mods: ${(error as Error).message}`)
+    }
+  }
+
   /**
-   * On a fresh install (zero instances), auto-create the recommended preset
-   * so new users can press Play immediately. Then sync autoMods.
+   * On a fresh install (zero managed instances), auto-create the recommended
+   * preset so new users can press Play immediately. Then sync autoMods.
    */
   async #ensureDefaultInstanceThenSync() {
     try {
       const instanceService = await this.app.registry.get(InstanceService)
       const instances = instanceService.state.all
-      if (Object.keys(instances).length > 0) {
+      // A fresh MineLatino installation can still discover external profiles
+      // from another launcher. Those must not prevent creation of our managed
+      // ready-to-play profile; only an existing managed profile means the user
+      // has already configured this launcher.
+      const hasManagedInstance = Object.values(instances)
+        .some(instance => instanceService.isUnderManaged(instance.path))
+      if (hasManagedInstance) {
         void this.syncAutoMods()
         return
       }
@@ -638,6 +703,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         shaderpacks: true,
       })
       this.log(`[autoInstance] Created instance at ${path}`)
+      await this.#installPresetMods(preset, path)
       await this.syncAutoMods()
     } catch (error) {
       this.warn(`[autoInstance] Failed to auto-create default instance: ${(error as Error).message}`)

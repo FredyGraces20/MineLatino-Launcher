@@ -149,6 +149,33 @@
             {{ t('MineLatinoCreateProfile.requiresLoader') }}
           </v-alert>
 
+          <div
+            v-if="contentTab === 'mods' && selectedLoader === 'fabric'"
+            class="ml-performance-card mb-3 flex items-center gap-3 rounded-lg pa-3"
+          >
+            <v-icon size="22" color="primary"> speed </v-icon>
+            <div class="min-w-0 flex-grow">
+              <div class="text-sm font-semibold" style="color: var(--ml-text)">
+                {{ t('MineLatinoCreateProfile.performanceTitle') }}
+              </div>
+              <div class="text-xs" style="color: var(--ml-dim)">
+                {{ t('MineLatinoCreateProfile.performanceDescription') }}
+              </div>
+            </div>
+            <v-btn
+              size="small"
+              variant="tonal"
+              color="primary"
+              :disabled="creating || performanceSelected"
+              @click="queuePerformanceMods"
+            >
+              <v-icon start size="15"> bolt </v-icon>
+              {{ performanceSelected
+                ? t('MineLatinoCreateProfile.performanceAdded')
+                : t('MineLatinoCreateProfile.performanceAdd') }}
+            </v-btn>
+          </div>
+
           <!-- Search bar -->
           <div class="flex gap-2 mb-3">
             <v-text-field
@@ -425,6 +452,14 @@ interface QueuedItem {
   icon: string
   type: 'mod' | 'resourcepack' | 'shader'
 }
+
+const PERFORMANCE_MODS: readonly QueuedItem[] = [
+  { projectId: 'AANobbMI', title: 'Sodium', icon: '', type: 'mod' },
+  { projectId: 'gvQqBUqZ', title: 'Lithium', icon: '', type: 'mod' },
+  { projectId: 'uXXizFIs', title: 'FerriteCore', icon: '', type: 'mod' },
+  { projectId: '5ZwdcRci', title: 'ImmediatelyFast', icon: '', type: 'mod' },
+  { projectId: 'NNAgCjsB', title: 'Entity Culling', icon: '', type: 'mod' },
+]
 const queuedMods = ref<QueuedItem[]>([])
 const queuedResourcepacks = ref<QueuedItem[]>([])
 const queuedShaders = ref<QueuedItem[]>([])
@@ -437,6 +472,18 @@ const allQueuedIds = computed(() => new Set([
 
 function isQueued(id: string) {
   return allQueuedIds.value.has(id)
+}
+
+const performanceSelected = computed(() =>
+  PERFORMANCE_MODS.every(mod => allQueuedIds.value.has(mod.projectId)),
+)
+
+function queuePerformanceMods() {
+  const queued = new Set(queuedMods.value.map(item => item.projectId))
+  queuedMods.value = [
+    ...queuedMods.value,
+    ...PERFORMANCE_MODS.filter(item => !queued.has(item.projectId)).map(item => ({ ...item })),
+  ]
 }
 
 function queueItem(hit: SearchResultHit) {
@@ -596,5 +643,10 @@ watch(shown, (v) => {
 .ml-confirm-card {
   background: var(--ml-raise, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--ml-border, rgba(255, 255, 255, 0.08));
+}
+
+.ml-performance-card {
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 8%, transparent);
+  border: 1px solid color-mix(in srgb, rgb(var(--v-theme-primary)) 30%, transparent);
 }
 </style>

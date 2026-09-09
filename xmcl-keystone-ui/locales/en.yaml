@@ -108,6 +108,10 @@ MineLatinoProfiles:
 MineLatinoCreateProfile:
   installFailed: 'The profile was created, but these items could not be installed: {items}. You can retry from the profile content catalog.'
   requiresLoader: To add mods, return to the previous step and select Forge, Fabric, NeoForge or Quilt.
+  performanceTitle: Optimized profile
+  performanceDescription: Add Sodium, Lithium, FerriteCore, ImmediatelyFast, and Entity Culling for better FPS, memory usage, and responsiveness.
+  performanceAdd: Add recommended
+  performanceAdded: Recommended added
   createFailed: Could not create the profile. Check the configuration and try again.
   title: Create profile
   stepConfig: Basic configuration
@@ -184,6 +188,7 @@ MineLatinoShell:
   options: Settings
   playingAs: Playing as
   profileSettings: Profile settings
+  profileContent: Available mods
   profileVersion: Version
 MineLatinoStore:
   catalogEmpty: No categories available yet.

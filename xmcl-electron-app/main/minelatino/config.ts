@@ -92,10 +92,17 @@ export const FALLBACK_CONFIG: MineLatinoConfig = {
   }, {
     id: 'minelatino-1-21-11',
     name: 'MineLatino 1.21.11',
-    description: 'Perfil Fabric 1.21.11 con el mod de cosméticos MineLatino.',
+    description: 'Perfil Fabric 1.21.11 listo para jugar, con cosméticos y optimizaciones de rendimiento.',
     minecraftVersion: '1.21.11',
     loader: 'fabric',
-    mods: [],
+    mods: [
+      { projectId: 'P7dR8mSH' }, // Fabric API
+      { projectId: 'AANobbMI' }, // Sodium
+      { projectId: 'gvQqBUqZ' }, // Lithium
+      { projectId: 'uXXizFIs' }, // FerriteCore
+      { projectId: '5ZwdcRci' }, // ImmediatelyFast
+      { projectId: 'NNAgCjsB' }, // Entity Culling
+    ],
     icon: 'star',
     recommended: true,
   }],

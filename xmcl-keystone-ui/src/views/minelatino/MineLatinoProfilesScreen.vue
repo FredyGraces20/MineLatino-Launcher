@@ -214,12 +214,13 @@ function iconOf(inst: Instance) {
 }
 
 .ml-profile-delete {
-  opacity: 0;
+  opacity: 0.72;
   transition: opacity 0.15s ease;
   flex-shrink: 0;
 }
 
-.ml-profile-card:hover .ml-profile-delete {
+.ml-profile-card:hover .ml-profile-delete,
+.ml-profile-delete:focus-visible {
   opacity: 1;
 }
 </style>
