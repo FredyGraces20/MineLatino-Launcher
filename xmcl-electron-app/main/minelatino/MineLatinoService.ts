@@ -28,6 +28,7 @@ import { InstanceModsService, InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
 import { VersionMetadataService } from '@xmcl/runtime/install'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
+import { findPresetInstanceCandidate } from './presetInstance'
 import { MineLatinoWebWindows } from './webWindow'
 
 /**
@@ -46,6 +47,7 @@ import { MineLatinoWebWindows } from './webWindow'
 const NEWS_TTL_MS = 60_000
 const UPDATES_TTL_MS = 60_000
 const CONFIG_TTL_MS = 5 * 60_000
+const PRESET_STATE_FILE = '.minelatino-preset.json'
 /** The catalog changes rarely, so its categories and per-mode products last longer. */
 const STORE_TTL_MS = 5 * 60_000
 const STORE_PRODUCTS_TTL_MS = 5 * 60_000
@@ -599,9 +601,51 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     return matches.length > 0 ? matches[matches.length - 1] : undefined
   }
 
+  #presetSignature(preset: MineLatinoPreset) {
+    return JSON.stringify({
+      minecraftVersion: preset.minecraftVersion,
+      loader: preset.loader,
+      mods: preset.mods.map(mod => ({ projectId: mod.projectId, version: mod.version ?? '' })),
+    })
+  }
+
+  async #hasAppliedPreset(instancePath: string, preset: MineLatinoPreset) {
+    try {
+      const state = asObject(JSON.parse(await readFile(join(instancePath, PRESET_STATE_FILE), 'utf8')))
+      return asString(state.id) === preset.id
+        && asString(state.signature) === this.#presetSignature(preset)
+    } catch {
+      return false
+    }
+  }
+
+  async #markPresetApplied(instancePath: string, preset: MineLatinoPreset) {
+    await outputJson(join(instancePath, PRESET_STATE_FILE), {
+      id: preset.id,
+      signature: this.#presetSignature(preset),
+      appliedAt: new Date().toISOString(),
+    }, { spaces: 2 })
+  }
+
+  async #findPresetInstance(preset: MineLatinoPreset, instanceService: InstanceService) {
+    const managed = Object.values(instanceService.state.all)
+      .filter(instance => instanceService.isUnderManaged(instance.path))
+
+    for (const instance of managed) {
+      if (await this.#hasAppliedPreset(instance.path, preset)) return instance
+    }
+
+    return findPresetInstanceCandidate(
+      preset,
+      managed,
+      path => instanceService.isUnderManaged(path),
+      runtime => this.#instanceLoader(runtime),
+    )
+  }
+
   /** Resolve and install the Modrinth starter set declared by a preset. */
-  async #installPresetMods(preset: MineLatinoPreset, instancePath: string) {
-    if (preset.mods.length === 0) return
+  async #installPresetMods(preset: MineLatinoPreset, instancePath: string): Promise<boolean> {
+    if (preset.mods.length === 0) return true
 
     const resolved = await Promise.all(preset.mods.map(async (mod) => {
       try {
@@ -636,9 +680,9 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     }))
 
     const versions = resolved.filter((entry): entry is { projectId: string, versionId: string } => !!entry)
-    if (versions.length === 0) {
-      this.warn('[autoInstance] No starter mods could be resolved; the profile remains usable.')
-      return
+    if (versions.length !== preset.mods.length) {
+      this.warn(`[autoInstance] Resolved only ${versions.length}/${preset.mods.length} starter mods; retrying on the next refresh.`)
+      return false
     }
 
     try {
@@ -649,37 +693,43 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         instancePath,
       })
       this.log(`[autoInstance] Installed ${versions.length}/${preset.mods.length} starter mods into ${instancePath}`)
+      return true
     } catch (error) {
       // The instance and the cosmetics auto-mod are still useful if Modrinth is
       // temporarily unavailable. The catalog lets the player retry later.
       this.warn(`[autoInstance] Failed to install starter mods: ${(error as Error).message}`)
+      return false
     }
   }
 
   /**
-   * On a fresh install (zero managed instances), auto-create the recommended
-   * preset so new users can press Play immediately. Then sync autoMods.
+   * Ensure the recommended profile exists after both clean installs and
+   * launcher upgrades. Existing unrelated profiles never suppress it. A small
+   * marker in the instance records which starter set was applied so config
+   * refreshes do not repeatedly reinstall performance mods.
    */
   async #ensureDefaultInstanceThenSync() {
     try {
       const instanceService = await this.app.registry.get(InstanceService)
-      const instances = instanceService.state.all
-      // A fresh MineLatino installation can still discover external profiles
-      // from another launcher. Those must not prevent creation of our managed
-      // ready-to-play profile; only an existing managed profile means the user
-      // has already configured this launcher.
-      const hasManagedInstance = Object.values(instances)
-        .some(instance => instanceService.isUnderManaged(instance.path))
-      if (hasManagedInstance) {
-        void this.syncAutoMods()
-        return
-      }
       const preset = this.#config.presets.find(p => p.recommended) ?? this.#config.presets[0]
       if (!preset) {
         this.warn('[autoInstance] No presets configured; skipping auto-creation.')
         return
       }
-      this.log(`[autoInstance] Fresh install detected — creating default profile "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
+
+      const existing = await this.#findPresetInstance(preset, instanceService)
+      if (existing) {
+        if (!(await this.#hasAppliedPreset(existing.path, preset))) {
+          this.log(`[autoInstance] Applying starter mods to existing recommended profile at ${existing.path}`)
+          if (await this.#installPresetMods(preset, existing.path)) {
+            await this.#markPresetApplied(existing.path, preset)
+          }
+        }
+        await this.syncAutoMods()
+        return
+      }
+
+      this.log(`[autoInstance] Recommended profile missing — creating "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
       const runtime = { minecraft: preset.minecraftVersion } as { minecraft: string, fabricLoader?: string }
       if (preset.loader === 'fabric') {
         const metadata = await this.app.registry.get(VersionMetadataService)
@@ -703,7 +753,9 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         shaderpacks: true,
       })
       this.log(`[autoInstance] Created instance at ${path}`)
-      await this.#installPresetMods(preset, path)
+      if (await this.#installPresetMods(preset, path)) {
+        await this.#markPresetApplied(path, preset)
+      }
       await this.syncAutoMods()
     } catch (error) {
       this.warn(`[autoInstance] Failed to auto-create default instance: ${(error as Error).message}`)
