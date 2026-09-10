@@ -62,7 +62,7 @@
         "@xmcl/worker": "workspace:*",
         "@xmcl/yauzl": "workspace:*",
         "async-mutex": "^0.5.0",
-        "atomically": "^2.0.3",
+        "atomically": "^2.1.1",
         "chokidar": "^4.0.3",
         "create-desktop-shortcuts": "^1.10.1",
         "fast-xml-parser": "^5.7.3",
