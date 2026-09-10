@@ -17,5 +17,6 @@ class ExtendedModrinthV2Client extends ModrinthV2Client {
 }
 
 export const clientModrinthV2 = new ExtendedModrinthV2Client()
+export const curseforgeApiAvailable = typeof __CURSEFORGE_API_AVAILABLE__ !== 'undefined' && __CURSEFORGE_API_AVAILABLE__
 export const clientCurseforgeV1 = new CurseforgeV1Client('', {})
 export const clientFTB = new FTBClient()

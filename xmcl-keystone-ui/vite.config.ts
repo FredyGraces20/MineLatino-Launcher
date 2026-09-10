@@ -21,6 +21,9 @@ const entries = readdirSync(join(__dirname, './src'))
  * Vite shared config, assign alias and root dir
  */
 export default defineConfig({
+  define: {
+    __CURSEFORGE_API_AVAILABLE__: JSON.stringify(Boolean(process.env.CURSEFORGE_API_KEY?.trim())),
+  },
   server: {
     port: devPort,
   },
@@ -129,4 +132,3 @@ export default defineConfig({
     }),
   ],
 })
-
