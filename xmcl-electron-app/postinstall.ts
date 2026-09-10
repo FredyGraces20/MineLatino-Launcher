@@ -6,7 +6,7 @@ if (!existsSync(join(__dirname, 'dist'))) {
 }
 
 if (!existsSync(join(__dirname, '.env'))) {
-  writeFileSync(join(__dirname, '.env'), 'CURSEFORGE_API_KEY=\n')
+  writeFileSync(join(__dirname, '.env'), '# Local launcher overrides\n')
 }
 
 if (process.platform === 'linux' || process.platform === 'openbsd' || process.platform === 'freebsd') {

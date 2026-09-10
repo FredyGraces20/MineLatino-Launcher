@@ -40,4 +40,3 @@ interface File {
 }
 
 declare const multiplayerNetworkDiagnostics: import('@xmcl/runtime-api').NetworkDiagnostics
-declare const __CURSEFORGE_API_AVAILABLE__: boolean

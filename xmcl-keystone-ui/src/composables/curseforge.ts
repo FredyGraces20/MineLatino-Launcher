@@ -70,6 +70,9 @@ export function useCurseforge(
       data.pages = Math.ceil(v.pagination.totalCount / get(pageSize))
     }
   }, { immediate: true })
+  watch(curseforgeApiAvailable, (available) => {
+    if (available) void mutate()
+  })
   return {
     ...toRefs(data),
     isValidating,
@@ -105,7 +108,7 @@ export function useCurseforgeSearchFunc(
     'Quilt',
   ]
   async function search(index: number, signal?: AbortSignal) {
-    if (!curseforgeApiAvailable) {
+    if (!curseforgeApiAvailable.value) {
       return { data: [], pagination: { index, pageSize: get(pageSize), resultCount: 0, totalCount: 0 } }
     }
     let modLoaderType = undefined as FileModLoaderType | undefined
@@ -342,10 +345,13 @@ export function useCurseforgeUpstreamHeader(project: Ref<Mod | undefined>) {
 
 export function useCurseforgeCategories() {
   const { error, isValidating: refreshing, mutate: refresh, data: categories } = useSWRV('/curseforge/categories', async () => {
-    if (!curseforgeApiAvailable) return []
+    if (!curseforgeApiAvailable.value) return []
     const result = markRaw(await clientCurseforgeV1.getCategories()).map(markRaw).filter(c => !!c)
     return result
   }, inject(kSWRVConfig))
+  watch(curseforgeApiAvailable, (available) => {
+    if (available) void refresh()
+  })
   return { categories, refreshing, refresh, error }
 }
 

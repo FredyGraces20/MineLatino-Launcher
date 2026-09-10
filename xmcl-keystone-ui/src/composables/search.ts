@@ -32,13 +32,13 @@ export function useSearchModel(runtime: Ref<RuntimeVersions>) {
   // filter. Keep it in local storage so changing it for one instance is
   // reflected by every market page and survives instance switches/restarts.
   const persistedCurseforgeActive = useLocalStorage('marketCurseforgeActive', true, { writeDefaults: false })
-  // CurseForge rejects every request without a distribution API key. MineLatino
-  // builds without that optional secret must keep Modrinth usable instead of
+  // CurseForge rejects every request without a distribution API key. While the
+  // private backend key is unavailable, keep Modrinth usable instead of
   // surfacing a CurseforgeApiError over the combined marketplace.
   const isCurseforgeActive = computed({
-    get: () => curseforgeApiAvailable && persistedCurseforgeActive.value,
+    get: () => curseforgeApiAvailable.value && persistedCurseforgeActive.value,
     set: (value: boolean) => {
-      if (curseforgeApiAvailable) persistedCurseforgeActive.value = value
+      if (curseforgeApiAvailable.value) persistedCurseforgeActive.value = value
     },
   })
   const isModrinthActive = useLocalStorage('marketModrinthActive', true, { writeDefaults: false })
@@ -63,7 +63,7 @@ export function useSearchModel(runtime: Ref<RuntimeVersions>) {
   const { modrinthSort, curseforgeSort } = useMarketSort(sort)
 
   const isModrinthDisabled = computed(() => notRemote.value || !isModrinthActive.value)
-  const isCurseforgeDisabled = computed(() => !curseforgeApiAvailable || notRemote.value || !isCurseforgeActive.value)
+  const isCurseforgeDisabled = computed(() => !curseforgeApiAvailable.value || notRemote.value || !isCurseforgeActive.value)
 
   // Keep the game version filter aligned with the selected instance's Minecraft
   // version. This watcher lives for the whole app lifetime (the model is created
