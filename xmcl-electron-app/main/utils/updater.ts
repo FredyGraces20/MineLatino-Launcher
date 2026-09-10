@@ -104,7 +104,10 @@ async function downloadAsarUpdate(
 
   // Skip the download entirely if the pending file already matches the
   // published checksum.
-  const pendingSha256 = await checksum(destination, 'sha256').catch(() => '')
+  // @xmcl/core returns undefined (rather than rejecting) when the destination
+  // does not exist. A first update therefore used to call toLowerCase() on
+  // undefined before downloading a single byte.
+  const pendingSha256 = (await checksum(destination, 'sha256').catch(() => undefined)) ?? ''
   if (pendingSha256.toLowerCase() === expectedSha256) {
     return
   }
@@ -112,7 +115,7 @@ async function downloadAsarUpdate(
   // Prefers the gzipped sibling when the release publishes one.
   try {
     await downloadGzAsar(app, url, destination, options)
-    const downloadedSha256 = await checksum(destination, 'sha256').catch(() => '')
+    const downloadedSha256 = (await checksum(destination, 'sha256').catch(() => undefined)) ?? ''
     if (downloadedSha256.toLowerCase() !== expectedSha256) {
       await unlinkAsync(destination).catch(() => {})
       throw new AnyError(
