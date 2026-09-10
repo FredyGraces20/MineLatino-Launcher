@@ -55,7 +55,7 @@ jobs:
         pnpm --parallel build:esm
         pnpm --parallel build:browser
     - name: Upload Coverage
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: coverage
         path: coverage
