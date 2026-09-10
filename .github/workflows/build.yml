@@ -27,7 +27,7 @@ jobs:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - name: Fix node-gyp and Python
         if: ${{ runner.os == 'macOS' || runner.os == 'Windows' }}
@@ -144,7 +144,7 @@ jobs:
       - name: Install Git
         run: |
           pacman -S --noconfirm git
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # build-arch only needs `package.json` from the working tree;
@@ -227,7 +227,7 @@ jobs:
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Treeless clone: full commit graph (needed by
@@ -298,7 +298,7 @@ jobs:
       - build
       # - build-arch
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # Treeless clone — see comment on `prepare-release`.
@@ -391,7 +391,7 @@ jobs:
           body: ${{ steps.release_note.outputs.body }}
           asset_dir_path: ./build
       - name: Checkout Website
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: Voxelum/xmcl-page
           path: xmcl-page
