@@ -404,8 +404,8 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
   requestCosmeticsPasswordReset(email: string): Promise<{ delivery: 'email' | 'support' }>
   resetCosmeticsPassword(input: { email: string; code: string; password: string }): Promise<void>
   changeCosmeticsPassword(input: { currentPassword: string; password: string }): Promise<void>
-  updateCosmeticsAccount(input: { email?: string; nick?: string }): Promise<MineLatinoCosmeticsAccount>
-  deleteCosmeticsAccount(): Promise<void>
+  updateCosmeticsAccount(input: { email?: string; nick?: string; currentPassword: string }): Promise<MineLatinoCosmeticsAccount>
+  deleteCosmeticsAccount(currentPassword: string): Promise<void>
   logoutCosmeticsAccount(): Promise<void>
   getCosmeticsPaymentProviders(): Promise<MineLatinoPaymentProvider[]>
   getCosmeticsOrders(): Promise<MineLatinoCosmeticOrder[]>

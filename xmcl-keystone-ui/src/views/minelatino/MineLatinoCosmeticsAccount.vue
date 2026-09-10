@@ -17,9 +17,10 @@
               <div><small>IDENTIDAD INTERNA</small><strong>{{ account.nick }}</strong><span>{{ account.accountId }}</span></div>
               <v-chip color="success" size="small" variant="tonal">Activa</v-chip>
             </div>
-            <v-text-field v-model="email" label="Correo" type="email" autocomplete="email" />
+            <v-text-field v-model="email" label="Correo" type="email" autocomplete="email" readonly hint="Para cambiarlo, solicita verificación al soporte." persistent-hint />
             <v-text-field v-model="nick" label="Nick de Minecraft" maxlength="16" counter="16" />
-            <p class="hint">El nick es visible y puede coincidir con el de otra cuenta. Tus compras pertenecen exclusivamente al ID interno.</p>
+            <p class="hint">Tus compras pertenecen al ID interno. Para mostrar cosméticos en servidores offline, el nick debe identificar una sola cuenta.</p>
+            <v-text-field v-model="reauthPassword" label="Contraseña actual para guardar o eliminar" type="password" autocomplete="current-password" />
             <button class="password-toggle" type="button" @click="changingPassword = !changingPassword">
               <v-icon size="18">key</v-icon>{{ changingPassword ? 'Cancelar cambio de contraseña' : 'Cambiar contraseña' }}
             </button>
@@ -80,6 +81,7 @@ const account = ref<MineLatinoCosmeticsAccount>()
 const dialog = ref(false), loading = ref(false), error = ref(''), success = ref(''), mode = ref<'register' | 'login' | 'forgot' | 'reset'>('register')
 const email = ref(''), nick = ref(''), password = ref('')
 const recoveryCode = ref(''), currentPassword = ref(''), newPassword = ref(''), confirmPassword = ref('')
+const reauthPassword = ref('')
 const changingPassword = ref(false)
 const title = computed(() => account.value ? 'Tu cuenta de cosméticos' : ({ register: 'Crear cuenta MineLatino', login: 'Iniciar sesión', forgot: 'Recuperar contraseña', reset: 'Crear contraseña nueva' })[mode.value])
 const actionLabel = computed(() => ({ register: 'Crear cuenta', login: 'Entrar', forgot: 'Enviar código', reset: 'Cambiar contraseña' })[mode.value])
@@ -148,8 +150,12 @@ async function changePassword() {
   finally { loading.value = false }
 }
 async function save() {
+  if (!reauthPassword.value) { error.value = 'Escribe tu contraseña actual para guardar los cambios'; return }
   error.value = ''; loading.value = true
-  try { account.value = await service.updateCosmeticsAccount({ email: email.value.trim(), nick: nick.value.trim() }); emit('changed', account.value) }
+  try {
+    account.value = await service.updateCosmeticsAccount({ email: email.value.trim(), nick: nick.value.trim(), currentPassword: reauthPassword.value })
+    reauthPassword.value = ''; emit('changed', account.value)
+  }
   catch (e) { error.value = e instanceof Error ? e.message : 'No se pudo actualizar la cuenta' }
   finally { loading.value = false }
 }
@@ -159,9 +165,10 @@ async function logout() {
   finally { loading.value = false }
 }
 async function removeAccount() {
+  if (!reauthPassword.value) { error.value = 'Escribe tu contraseña actual para eliminar la cuenta'; return }
   if (!confirm('¿Eliminar tu cuenta MineLatino? Se cerrarán todas las sesiones y dejarás de usar los cosméticos.')) return
   loading.value = true
-  try { await service.deleteCosmeticsAccount(); account.value = undefined; emit('changed', undefined); dialog.value = false }
+  try { await service.deleteCosmeticsAccount(reauthPassword.value); reauthPassword.value = ''; account.value = undefined; emit('changed', undefined); dialog.value = false }
   catch (e) { error.value = e instanceof Error ? e.message : 'No se pudo eliminar la cuenta' }
   finally { loading.value = false }
 }

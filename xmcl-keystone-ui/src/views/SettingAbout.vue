@@ -21,6 +21,9 @@
             >
               {{ productName }}
             </a>
+            <div v-if="version" class="text-caption opacity-70 mt-1">
+              {{ t('setting.launcherVersion', { version }) }}
+            </div>
           </div>
           <v-spacer />
           <div class="d-flex align-center gap-2">
@@ -30,6 +33,45 @@
         </div>
         <div class="text-caption opacity-70 mb-6">
           NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
+        </div>
+
+        <div class="upstream-card mb-8 pa-4 pa-sm-5">
+          <div class="upstream-card__icon" aria-hidden="true">
+            <v-icon size="28">account_tree</v-icon>
+          </div>
+          <div class="upstream-card__content">
+            <div class="d-flex align-center flex-wrap gap-2 mb-2">
+              <div class="text-subtitle-1 font-weight-bold">
+                {{ t('setting.baseProjectTitle') }}
+              </div>
+              <v-chip color="primary" size="small" variant="tonal">
+                {{ t('setting.openSource') }}
+              </v-chip>
+            </div>
+            <p class="text-body-2 opacity-90 mb-2">
+              {{ t('setting.baseProjectDescription') }}
+            </p>
+            <p class="text-caption opacity-70 mb-4">
+              {{ t('setting.baseProjectDisclaimer') }}
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+              <v-btn
+                color="primary"
+                variant="tonal"
+                prepend-icon="code"
+                @click="openInBrowser(XMCL_REPOSITORY_URL)"
+              >
+                {{ t('setting.viewXmclSource') }}
+              </v-btn>
+              <v-btn
+                variant="text"
+                prepend-icon="description"
+                @click="openInBrowser(XMCL_LICENSE_URL)"
+              >
+                {{ t('setting.viewMitLicense') }}
+              </v-btn>
+            </div>
+          </div>
         </div>
 
         <!-- Debug Info Box -->
@@ -70,11 +112,42 @@ const version = computed(() => env.value?.version ?? '')
 
 // The operator-configured name, with the product name as the offline fallback
 // so the page never flashes the upstream launcher's identity.
-const { branding } = useMineLatino()
+const { branding, openInBrowser } = useMineLatino()
 const productName = computed(() => branding.value?.name || 'MineLatino')
+const XMCL_REPOSITORY_URL = 'https://github.com/Voxelum/x-minecraft-launcher'
+const XMCL_LICENSE_URL = `${XMCL_REPOSITORY_URL}/blob/master/LICENSE`
 </script>
 
 <style scoped>
+.upstream-card {
+  display: flex;
+  gap: 16px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.24);
+  border-radius: var(--card-item-radius);
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.12), rgba(var(--v-theme-surface), 0.2));
+}
+
+.upstream-card__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.14);
+}
+
+.upstream-card__content {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .upstream-card {
+    flex-direction: column;
+  }
+}
+
 .debug-info-code {
   background: rgba(0, 0, 0, 0.25);
   border: var(--card-subsection-border);

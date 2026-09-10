@@ -72,8 +72,8 @@ async function downloadAsarUpdate(
 ): Promise<void> {
   const version = updateInfo.name.startsWith('v') ? updateInfo.name.substring(1) : updateInfo.name
   const file = asarAssetName(version)
-  const url = updateInfo.files.find(f => f.name === file)?.url
-  if (!url) {
+  const publishedUrl = updateInfo.files.find(f => f.name === file)?.url
+  if (!publishedUrl) {
     throw new AnyError(
       'UpdateAsarError',
       `The release ${updateInfo.name} does not publish ${file}`,
@@ -81,6 +81,7 @@ async function downloadAsarUpdate(
       { published: updateInfo.files.map(f => f.name).join(', ') },
     )
   }
+  const url = trustedUpdateUrl(publishedUrl)
 
   const sha256Url = url + '.sha256'
   const sha256Response = await app.fetch(sha256Url, { signal: options?.abortSignal })
@@ -174,9 +175,21 @@ async function downloadGzAsar(
  */
 async function hintUserDownload(updateInfo: ReleaseInfo): Promise<void> {
   const installer = updateInfo.files.find(f => /\.(exe|msi|dmg|zip|AppImage|deb|rpm|tar\.xz)$/i.test(f.name))
-  const url = installer?.url || resolveBackendUrl()
+  const url = trustedUpdateUrl(installer?.url || resolveBackendUrl())
   if (!url) return
   await shell.openExternal(url)
+}
+
+function trustedUpdateUrl(raw: string): string {
+  const url = new URL(raw)
+  if (url.protocol !== 'https:') throw new Error('Update URL must use HTTPS')
+  const backend = new URL(resolveBackendUrl())
+  const ownGithubRelease = url.hostname === 'github.com'
+    && url.pathname.startsWith('/FredyGraces20/MineLatino-Launcher/releases/download/')
+  if (!ownGithubRelease && url.origin !== backend.origin) {
+    throw new Error(`Untrusted update origin: ${url.origin}`)
+  }
+  return url.toString()
 }
 
 async function getUpdateAsarViaBatArgs(

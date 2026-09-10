@@ -1698,6 +1698,13 @@ setting:
     loadTheme: Cargar tema
   about: Acerca de
   aboutLicense: MIT LICENSE
+  baseProjectDescription: MineLatino Launcher es una distribución modificada basada en X Minecraft Launcher (XMCL), el proyecto de código abierto creado por ci010 y su comunidad, utilizado conforme a la licencia MIT.
+  baseProjectDisclaimer: MineLatino mantiene sus propias modificaciones y soporte. El proyecto XMCL original no es responsable de esta distribución.
+  baseProjectTitle: Basado en X Minecraft Launcher (XMCL)
+  launcherVersion: Versión {version}
+  openSource: Código abierto
+  viewMitLicense: Ver licencia MIT
+  viewXmclSource: Ver código base de XMCL
   advancedJavaOptions: Opciones avanzadas de Java
   advancedSettings: Configuración avanzada
   advancedSettingsHint: Zona de peligro — restablecer o administrar datos del lanzador

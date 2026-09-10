@@ -38,6 +38,7 @@ import { kUserTokenStorage } from '~/user'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { findPresetInstanceCandidate } from './presetInstance'
 import { MineLatinoWebWindows } from './webWindow'
+import { checksum } from '~/util/fs'
 
 /**
  * Feeds the MineLatino home screen.
@@ -648,7 +649,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     await this.#persistCosmeticsSession()
   }
 
-  async updateCosmeticsAccount(input: { email?: string; nick?: string }) {
+  async updateCosmeticsAccount(input: { email?: string; nick?: string; currentPassword: string }) {
     await this.initialize()
     if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
     const result = await this.#cosmeticsRequest('/v1/account/me', {
@@ -675,11 +676,12 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     }).catch(() => undefined)
   }
 
-  async deleteCosmeticsAccount() {
+  async deleteCosmeticsAccount(currentPassword: string) {
     await this.initialize()
     if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
     await this.#cosmeticsRequest('/v1/account/me', {
-      method: 'DELETE', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}` },
+      method: 'DELETE', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword }),
     })
     this.#cosmeticsSession = undefined
     await this.#persistCosmeticsSession()
@@ -1159,7 +1161,11 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
           size: match.fileSize || undefined,
         }
 
-        if (!existingMods.has(expectedFile)) {
+        const existingName = existingMods.get(expectedFile)
+        const existingValid = existingName
+          ? (await checksum(join(instancePath, 'mods', existingName), 'sha1').catch(() => '')).toLowerCase() === match.sha1.toLowerCase()
+          : false
+        if (!existingValid) {
           try {
             this.log(`[autoMods] Downloading and verifying ${mod.name} ${match.modVersion} for ${instance.name || instancePath}`)
             await installService.installInstanceFiles({

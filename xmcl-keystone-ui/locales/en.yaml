@@ -2092,6 +2092,13 @@ setting:
   multiplayerTransportDescription: Choose the WebRTC implementation used by Together. Changing transport disconnects active peers.
   about: About
   aboutLicense: MIT LICENSE
+  baseProjectDescription: MineLatino Launcher is a modified distribution based on X Minecraft Launcher (XMCL), the open-source project created by ci010 and its community, used under the MIT License.
+  baseProjectDisclaimer: MineLatino maintains its own modifications and support. The original XMCL project is not responsible for this distribution.
+  baseProjectTitle: Based on X Minecraft Launcher (XMCL)
+  launcherVersion: Version {version}
+  openSource: Open source
+  viewMitLicense: View MIT License
+  viewXmclSource: View XMCL source
   advancedJavaOptions: Advanced Java Options
   advancedSettings: Advanced Settings
   advancedSettingsHint: Danger zone - reset or manage launcher data
