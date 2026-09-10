@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Download Releases
-      uses: robinraju/release-downloader@v1.7
+      uses: robinraju/release-downloader@v1.13
       with:
         repository: "voxelum/x-minecraft-launcher"
         tag: ${{ github.event.release.tag_name }}
@@ -41,21 +41,21 @@ jobs:
       uses: actions/checkout@v5
     - uses: pnpm/action-setup@v6
     - name: Download asar bundles
-      uses: robinraju/release-downloader@v1.7
+      uses: robinraju/release-downloader@v1.13
       with:
         repository: "voxelum/x-minecraft-launcher"
         tag: ${{ github.event.release.tag_name }}
         fileName: "app-*.asar.gz"
         out-file-path: build
     - name: Download asar checksums
-      uses: robinraju/release-downloader@v1.7
+      uses: robinraju/release-downloader@v1.13
       with:
         repository: "voxelum/x-minecraft-launcher"
         tag: ${{ github.event.release.tag_name }}
         fileName: "app-*.asar.sha256"
         out-file-path: build
     - name: Download manifest
-      uses: robinraju/release-downloader@v1.7
+      uses: robinraju/release-downloader@v1.13
       with:
         repository: "voxelum/x-minecraft-launcher"
         tag: ${{ github.event.release.tag_name }}
@@ -191,7 +191,7 @@ jobs:
         shell: powershell
     steps:
       - name: Download Releases
-        uses: robinraju/release-downloader@v1.8
+        uses: robinraju/release-downloader@v1.13
         with:
           repository: "voxelum/x-minecraft-launcher"
           tag: ${{ github.event.release.tag_name }}
@@ -291,7 +291,7 @@ jobs:
   #     - publish
   #   steps:
   #   - name: Download Releases
-  #     uses: robinraju/release-downloader@v1.7
+  #     uses: robinraju/release-downloader@v1.13
   #     with:
   #       repository: "voxelum/x-minecraft-launcher"
   #       tag: ${{ github.event.release.tag_name }}
