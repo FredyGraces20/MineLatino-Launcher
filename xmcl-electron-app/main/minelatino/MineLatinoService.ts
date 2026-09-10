@@ -624,6 +624,30 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     return this.#openCosmeticsAccount('/v1/account/login', input)
   }
 
+  async requestCosmeticsPasswordReset(email: string): Promise<{ delivery: 'email' | 'support' }> {
+    const result = await this.#cosmeticsRequest('/v1/account/password/forgot', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+    })
+    return { delivery: result.delivery === 'email' ? 'email' : 'support' }
+  }
+
+  async resetCosmeticsPassword(input: { email: string; code: string; password: string }): Promise<void> {
+    await this.#cosmeticsRequest('/v1/account/password/reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+    })
+  }
+
+  async changeCosmeticsPassword(input: { currentPassword: string; password: string }): Promise<void> {
+    await this.initialize()
+    if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
+    await this.#cosmeticsRequest('/v1/account/password', {
+      method: 'PUT', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    this.#cosmeticsSession = undefined
+    await this.#persistCosmeticsSession()
+  }
+
   async updateCosmeticsAccount(input: { email?: string; nick?: string }) {
     await this.initialize()
     if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
