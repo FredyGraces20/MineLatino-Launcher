@@ -1,6 +1,6 @@
 import { onScopeDispose, ref } from 'vue'
 
-export const cosmeticSlots = { HAT: 'Cabeza', CAPE: 'Capa', WINGS: 'Alas', BACKPACK: 'Mochila', PET: 'Mascota' } as const
+export const cosmeticSlots = { HAT: 'Cabeza', CAPE: 'Capa', WINGS: 'Alas', BACKPACK: 'Mochila', PET: 'Mascota', SKIN: 'Skins' } as const
 export interface CosmeticProduct {
   id: string
   name: string
@@ -10,6 +10,7 @@ export interface CosmeticProduct {
   currency: string
   hasTexture: boolean
   hasModel: boolean
+  hasAvatarPackage: boolean
   textureCount: number
   resourceVersion: string
 }
@@ -28,7 +29,7 @@ export function parseProduct(value: unknown): CosmeticProduct {
     || !Object.hasOwn(cosmeticSlots, p.slot) || typeof p.description !== 'string'
     || !['USD', 'EUR', 'UYU', 'ARS', 'BRL', 'MXN'].includes(p.currency)
     || (p.amountMinor !== null && (!Number.isSafeInteger(p.amountMinor) || p.amountMinor <= 0))
-    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean'
+    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean' || typeof p.hasAvatarPackage !== 'boolean'
     || !Number.isSafeInteger(p.textureCount) || p.textureCount < 0 || p.textureCount > 32
     || typeof p.resourceVersion !== 'string') {
     throw new Error('El catálogo devolvió un producto inválido')

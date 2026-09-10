@@ -51,6 +51,14 @@ async function load() {
     // Only trusted selected profile skins are passed here; a failed skin never silently shows another player.
     await Promise.race([target.loadSkin(props.skin), new Promise<never>((_, reject) => active.signal.addEventListener('abort', () => reject(new Error('Tiempo de espera agotado')), { once: true }))])
     if (active.signal.aborted || request !== active) return
+    if (product.slot === 'SKIN') {
+      if (!product.hasAvatarPackage) throw new Error('Esta Skin todavía no tiene un paquete de personaje publicado.')
+      // The animated Bedrock avatar is rendered by the MineLatino mod. Keeping
+      // the authenticated player's skin here provides an honest fallback
+      // instead of trying to interpret the ZIP as a Java cosmetic model.
+      if (request === active) turn(false)
+      return
+    }
     if (!product.hasTexture) throw new Error('Este cosmético aún no tiene textura publicada.')
     if (!product.hasModel) {
       if (product.slot !== 'CAPE' && product.slot !== 'WINGS') throw new Error('Falta el modelo Java JSON para previsualizar este cosmético.')
