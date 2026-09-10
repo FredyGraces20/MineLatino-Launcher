@@ -24,17 +24,20 @@ export function priceLabel(product: CosmeticProduct) {
   return product.amountMinor === null ? 'Precio por confirmar' : new Intl.NumberFormat('es', { style: 'currency', currency: product.currency }).format(product.amountMinor / 100)
 }
 export function parseProduct(value: unknown): CosmeticProduct {
-  const p = value as CosmeticProduct
+  const p = value as CosmeticProduct & { hasAvatarPackage?: unknown }
   if (!p || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.id) || typeof p.name !== 'string'
     || !Object.hasOwn(cosmeticSlots, p.slot) || typeof p.description !== 'string'
     || !['USD', 'EUR', 'UYU', 'ARS', 'BRL', 'MXN'].includes(p.currency)
     || (p.amountMinor !== null && (!Number.isSafeInteger(p.amountMinor) || p.amountMinor <= 0))
-    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean' || typeof p.hasAvatarPackage !== 'boolean'
+    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean'
+    || (p.hasAvatarPackage !== undefined && typeof p.hasAvatarPackage !== 'boolean')
     || !Number.isSafeInteger(p.textureCount) || p.textureCount < 0 || p.textureCount > 32
     || typeof p.resourceVersion !== 'string') {
     throw new Error('El catálogo devolvió un producto inválido')
   }
-  return p
+  // Older/cache-warmed service instances do not include this field. Treating
+  // it as false keeps conventional cosmetics visible during rolling deploys.
+  return { ...p, hasAvatarPackage: p.hasAvatarPackage ?? false } as CosmeticProduct
 }
 export function useCosmeticsStore() {
   const products = ref<CosmeticProduct[]>([])
@@ -55,7 +58,13 @@ export function useCosmeticsStore() {
         if (!response.ok) throw new Error(response.status === 404 ? 'El servicio necesita la actualización del catálogo de cosméticos.' : `No se pudo obtener el catálogo (HTTP ${response.status}).`)
         const page: { items: unknown[]; nextOffset: number | null } = await response.json()
         if (!Array.isArray(page.items) || page.items.length > 50) throw new Error('Respuesta de catálogo inválida')
-        items.push(...page.items.map(parseProduct))
+        for (const raw of page.items) {
+          try { items.push(parseProduct(raw)) }
+          catch (error) {
+            // One malformed catalog entry must not hide every valid product.
+            console.warn('[cosmetics] ignored invalid catalog product', error)
+          }
+        }
         const next: number | null = page.nextOffset
         if (next !== null && (!Number.isSafeInteger(next) || next <= offset || items.length >= 10000)) throw new Error('Paginación de catálogo inválida')
         offset = next
