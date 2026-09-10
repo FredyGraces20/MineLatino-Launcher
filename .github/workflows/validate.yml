@@ -22,7 +22,7 @@ jobs:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - uses: pnpm/action-setup@v6
     - name: Use Node.js 24
       uses: actions/setup-node@v5
