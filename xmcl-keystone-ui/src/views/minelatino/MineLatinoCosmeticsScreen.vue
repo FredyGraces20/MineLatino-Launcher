@@ -19,9 +19,17 @@
         </button>
       </div>
       <aside v-if="featured" class="fitting-room">
-        <span class="eyebrow">TU PROBADOR</span>
+        <div class="fitting-room-heading">
+          <span class="eyebrow">TU PROBADOR</span>
+          <span class="fitting-room-count">{{ featuredIndex + 1 }} / {{ filtered.length }}</span>
+        </div>
         <CosmeticPreview v-if="!dialog" :key="featured.id" :product="featured" :skin="skin" />
-        <h2>{{ featured.name }}</h2><p>{{ playerName }} · {{ cosmeticSlots[featured.slot] }}</p>
+        <div class="fitting-room-navigation" aria-label="Cambiar cosmético del probador">
+          <v-btn data-testid="cosmetics-preview-previous" icon="chevron_left" variant="tonal" size="small" :disabled="filtered.length < 2" aria-label="Cosmético anterior" @click="stepFeatured(-1)" />
+          <span>{{ featured.name }}</span>
+          <v-btn data-testid="cosmetics-preview-next" icon="chevron_right" variant="tonal" size="small" :disabled="filtered.length < 2" aria-label="Cosmético siguiente" @click="stepFeatured(1)" />
+        </div>
+        <p>{{ playerName }} · {{ cosmeticSlots[featured.slot] }}</p>
         <v-btn block color="primary" @click="open(featured)">Ver producto</v-btn>
       </aside>
     </div>
@@ -79,7 +87,8 @@ import { kUserContext } from '@/composables/user'
 import { useService } from '@/composables/service'
 import { injection } from '@/util/inject'
 import { MineLatinoServiceKey, type MineLatinoCosmeticOrder, type MineLatinoCosmeticsAccount as CosmeticsAccount, type MineLatinoPaymentProvider } from '@xmcl/runtime-api'
-import { CosmeticProduct, cosmeticSlots, priceLabel, resourceUrl, useCosmeticsStore } from '@/composables/cosmeticsStore'
+import { CosmeticProduct, cosmeticSlots, priceLabel, useCosmeticsStore } from '@/composables/cosmeticsStore'
+import { retainCarouselItemIndex, wrapCarouselIndex } from '@/util/cosmeticsCarousel'
 import CosmeticPreview from './CosmeticPreview.vue'
 import CosmeticThumbnail from './CosmeticThumbnail.vue'
 import MineLatinoCosmeticsAccount from './MineLatinoCosmeticsAccount.vue'
@@ -95,8 +104,14 @@ const createdOrder = ref<MineLatinoCosmeticOrder>(), checkoutError = ref(''), cr
 const ordersDialog = ref(false), ordersLoading = ref(false), ordersError = ref('')
 const categories = [{ title: 'Todos', value: 'ALL' }, ...Object.entries(cosmeticSlots).map(([value, title]) => ({ title, value }))]
 const filtered = computed(() => products.value.filter(p => (slot.value === 'ALL' || slot.value === p.slot) && `${p.name} ${p.description}`.toLocaleLowerCase().includes((search.value || '').toLocaleLowerCase())))
-const featured = computed(() => filtered.value[0])
-function open(product: CosmeticProduct) { selected.value = product; dialog.value = true; checkout.value = false }
+const featuredIndex = ref(0)
+const featured = computed(() => filtered.value[featuredIndex.value])
+function stepFeatured(delta: number) { featuredIndex.value = wrapCarouselIndex(featuredIndex.value, delta, filtered.value.length) }
+function open(product: CosmeticProduct) {
+  const productIndex = filtered.value.findIndex(item => item.id === product.id)
+  if (productIndex >= 0) featuredIndex.value = productIndex
+  selected.value = product; dialog.value = true; checkout.value = false
+}
 function onAccountChanged(value: CosmeticsAccount | undefined) { account.value = value; orders.value = []; createdOrder.value = undefined }
 async function openCheckout() {
   if (!account.value) return
@@ -129,6 +144,10 @@ function orderStatus(status: MineLatinoCosmeticOrder['status']) { return status 
 function formatOrderPrice(order: MineLatinoCosmeticOrder) { return new Intl.NumberFormat('es', { style: 'currency', currency: order.currency }).format(order.amountMinor / 100) }
 watch(() => gameProfile.value?.id, () => { checkout.value = false })
 watch(dialog, value => { if (!value) checkout.value = false })
+watch(filtered, (items, previousItems) => {
+  const currentId = previousItems?.[featuredIndex.value]?.id
+  featuredIndex.value = retainCarouselItemIndex(items, currentId)
+})
 onMounted(async () => { await Promise.all([refresh(), service.getCosmeticsAccount().then(value => { account.value = value })]) })
 </script>
 <style scoped>
@@ -149,7 +168,10 @@ p { color: var(--ml-dim, #b4b8c3); font-size: 13px; line-height: 1.6; }
 .product-art span { position: absolute; bottom: 7px; font-size: 9px; letter-spacing: .12em; color: var(--ml-dim); }
 .product-copy { padding: 16px; } .product-copy small { color: var(--ml-dim); } .product-copy strong { color: var(--ml-accent-text); font-size: 14px; }
 .fitting-room { border: 1px solid var(--ml-border); padding: 16px; border-radius: 20px; background: var(--ml-panel); }
-.fitting-room .eyebrow { display: block; margin-bottom: 12px; }
+.fitting-room-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fitting-room-count { color: var(--ml-dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+.fitting-room-navigation { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; margin: 12px 0 8px; }
+.fitting-room-navigation span { overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
 .fitting-room p { margin-bottom: 16px; }
 .product-dialog { background: #171a21 !important; border: 1px solid #ffffff20; border-radius: 22px !important; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; white-space: normal; }
