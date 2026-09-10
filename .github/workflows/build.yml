@@ -33,7 +33,7 @@ jobs:
         if: ${{ runner.os == 'macOS' || runner.os == 'Windows' }}
         run: python3 -m pip install --break-system-packages --user packaging setuptools
       - name: Use Node.js 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -237,7 +237,7 @@ jobs:
           filter: blob:none
       - uses: pnpm/action-setup@v6
       - name: Use Node.js 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
@@ -305,7 +305,7 @@ jobs:
           filter: blob:none
       - uses: pnpm/action-setup@v6
       - name: Use Node.js 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: "pnpm"
