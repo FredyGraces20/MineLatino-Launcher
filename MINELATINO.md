@@ -650,9 +650,12 @@ Until then the launcher runs on `FALLBACK_CONFIG` and deliberately looks inert.
   create v<new>`, and bump both Railway variables to the new tag. The launcher's
   history is a clean orphan root (upstream was a shallow clone that could not be
   pushed).
-- **Code signing.** The build is unsigned, so Windows SmartScreen will warn on first
-  run. Ship the player guide ("Más información → Ejecutar de todos modos") now; a
-  certificate later removes the warning.
+- **Code signing.** The repository now contains a project-specific SignPath
+  workflow and the public policy required for a free SignPath Foundation
+  application. Signing remains disabled until SignPath approves MineLatino and
+  the repository receives its organization/project variables plus
+  `SIGNPATH_API_TOKEN`. Until then, Windows SmartScreen can still warn on first
+  run. See `CODE_SIGNING_POLICY.md`.
 - **Install / login QA.** The NSIS installer and the Microsoft-login flow have been
   built and typechecked but not executed end-to-end on a clean machine; that is
   operator-side manual QA.
