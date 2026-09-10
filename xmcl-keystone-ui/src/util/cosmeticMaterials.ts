@@ -1,4 +1,4 @@
-import { Mesh, MeshStandardMaterial, NearestFilter, SRGBColorSpace, Texture } from 'three'
+import { DoubleSide, Mesh, MeshStandardMaterial, NearestFilter, SRGBColorSpace, Texture } from 'three'
 import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
 import { cosmeticGeometry, JavaCosmeticModel } from './cosmeticGeometry'
 
@@ -41,6 +41,7 @@ export async function createCosmeticMesh(
     if (names.length > 32) throw new Error('Demasiadas texturas')
     const base = resourceUrl(product)
     const response = await fetch(`${base}&type=manifest`, { credentials: 'omit', ...resourceOptions, signal })
+    if (!response.ok) throw new Error(`No se pudo obtener el manifiesto de texturas (${response.status})`)
     let files: { name: string; hasMcmeta: boolean }[] = []
     try { files = (await response.json()).files; if (!Array.isArray(files)) throw new Error() } catch {
       if (names.length > 1) throw new Error('Actualiza el servicio: falta el manifiesto de texturas')
@@ -71,7 +72,7 @@ export async function createCosmeticMesh(
       ;(texture as Texture & { colorSpace: string }).colorSpace = SRGBColorSpace
       texture.generateMipmaps = false; texture.needsUpdate = true
       texture.addEventListener('dispose', () => bitmap.close())
-      const material = new MeshStandardMaterial({ map: texture, alphaTest: 0.1, roughness: 1 })
+      const material = new MeshStandardMaterial({ map: texture, alphaTest: 0.1, roughness: 1, side: DoubleSide })
       materials.push(material)
       updates.push(() => {
         const frame = animation.frame(performance.now() / 50)

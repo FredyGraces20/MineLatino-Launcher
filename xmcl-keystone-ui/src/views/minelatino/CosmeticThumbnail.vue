@@ -1,5 +1,5 @@
 <template>
-  <span ref="root" class="cosmetic-thumb-root">
+  <span ref="root" class="cosmetic-thumb-root" :title="renderError">
   <img v-if="dataUrl" :src="dataUrl" :alt="alt" class="cosmetic-thumb">
   <img v-else-if="fallbackSrc" :src="fallbackSrc" :alt="alt" class="cosmetic-thumb" loading="lazy">
   <v-icon v-else size="52" class="cosmetic-thumb-icon">checkroom</v-icon>
@@ -7,7 +7,7 @@
 </template>
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { AmbientLight, Box3, DirectionalLight, Mesh, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three'
+import { AmbientLight, Box3, DirectionalLight, Mesh, PerspectiveCamera, Scene, SRGBColorSpace, Vector3, WebGLRenderer } from 'three'
 import { JavaCosmeticModel } from '@/util/cosmeticGeometry'
 import { createCosmeticMesh, disposeCosmeticMesh } from '@/util/cosmeticMaterials'
 import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
@@ -15,25 +15,33 @@ import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
 const props = defineProps<{ product: CosmeticProduct; alt?: string }>()
 const dataUrl = ref('')
 const fallbackSrc = ref('')
+const renderError = ref('')
 const root = ref<HTMLElement>()
 let observer: IntersectionObserver | undefined, request: AbortController | undefined
 
 function prepare() {
   observer?.disconnect(); request?.abort()
-  dataUrl.value = ''; fallbackSrc.value = ''
+  dataUrl.value = ''; fallbackSrc.value = ''; renderError.value = ''
   if (!props.product.hasTexture) return
   if (!props.product.hasModel) { fallbackSrc.value = resourceUrl(props.product); return }
   // Lazy render: only build the 3D snapshot when the thumb scrolls into view.
   observer = new IntersectionObserver(entries => {
     if (!entries[0]?.isIntersecting) return
     observer?.disconnect()
-    void renderSnapshot().catch(() => { /* Keep a placeholder, never a mismatched texture atlas. */ })
+    void renderSnapshot().catch((error) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      renderError.value = error instanceof Error ? error.message : 'No se pudo generar la miniatura 3D'
+      // A single-texture product has a safe 2D fallback. Multi-texture atlases
+      // stay as an icon because choosing one would display the wrong material.
+      if (props.product.textureCount <= 1) fallbackSrc.value = resourceUrl(props.product)
+      console.warn(`[cosmetics] thumbnail failed for ${props.product.id}: ${renderError.value}`)
+    })
   }, { rootMargin: '200px' })
   // Observe the nearest ancestor or a sentinel; we use the component root element.
   if (root.value) observer.observe(root.value)
 }
 onMounted(prepare)
-watch(() => [props.product.id, props.product.resourceVersion, props.product.hasModel, props.product.hasTexture], prepare)
+watch(() => [props.product.id, props.product.resourceVersion, props.product.hasModel, props.product.hasTexture, props.product.textureCount], prepare)
 onBeforeUnmount(() => { observer?.disconnect(); request?.abort() })
 
 async function renderSnapshot() {
@@ -43,6 +51,9 @@ async function renderSnapshot() {
   const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true })
   if (!gl) throw new Error('No WebGL')
   const renderer = new WebGLRenderer({ canvas, context: gl, antialias: false })
+  // Runtime Three.js supports outputColorSpace; Object.assign keeps this
+  // compatible with the older @types/three declaration used by the launcher.
+  Object.assign(renderer, { outputColorSpace: SRGBColorSpace })
   renderer.setSize(w, h, false)
   renderer.setPixelRatio(1)
   const active = request = new AbortController(), product = props.product

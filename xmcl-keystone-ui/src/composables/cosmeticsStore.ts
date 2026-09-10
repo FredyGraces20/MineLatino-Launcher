@@ -10,6 +10,7 @@ export interface CosmeticProduct {
   currency: string
   hasTexture: boolean
   hasModel: boolean
+  textureCount: number
   resourceVersion: string
 }
 
@@ -27,7 +28,9 @@ export function parseProduct(value: unknown): CosmeticProduct {
     || !Object.hasOwn(cosmeticSlots, p.slot) || typeof p.description !== 'string'
     || !['USD', 'EUR', 'UYU', 'ARS', 'BRL', 'MXN'].includes(p.currency)
     || (p.amountMinor !== null && (!Number.isSafeInteger(p.amountMinor) || p.amountMinor <= 0))
-    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean' || typeof p.resourceVersion !== 'string') {
+    || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean'
+    || !Number.isSafeInteger(p.textureCount) || p.textureCount < 0 || p.textureCount > 32
+    || typeof p.resourceVersion !== 'string') {
     throw new Error('El catálogo devolvió un producto inválido')
   }
   return p

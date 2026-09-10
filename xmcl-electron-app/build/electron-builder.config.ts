@@ -112,8 +112,7 @@ export const config = {
   // (and publish a matching `app-<version>-win-ia32.asar`) if 32-bit players
   // ever matter.
   win: {
-    certificateFile: undefined as string | undefined,
-    publisherName: productName,
+    signtoolOptions: { publisherName: productName },
     icon: 'icons/dark.ico',
     electronLanguages: ['en-US'],
     target: [
@@ -131,8 +130,10 @@ export const config = {
     executableName: scheme,
     electronLanguages: ['en-US'],
     desktop: {
-      MimeType: `x-scheme-handler/${scheme}`,
-      StartupWMClass: scheme,
+      entry: {
+        MimeType: `x-scheme-handler/${scheme}`,
+        StartupWMClass: scheme,
+      },
     },
     category: 'Game',
     icon: 'icons/dark.icns',

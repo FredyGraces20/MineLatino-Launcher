@@ -258,6 +258,44 @@ export interface MineLatinoStoreProductsResult {
   error?: string
 }
 
+export interface MineLatinoCosmeticsAccount {
+  accountId: string
+  email: string
+  nick: string
+  status: 'active' | 'suspended' | 'deleted'
+  createdAt: number
+  updatedAt: number
+  deletedAt: number | null
+}
+
+export interface MineLatinoAccountCredentials {
+  email: string
+  password: string
+  nick?: string
+}
+
+export interface MineLatinoPaymentProvider {
+  id: 'manual' | 'paypal' | 'binance' | 'mercadopago'
+  name: string
+  enabled: boolean
+  instructions: string | null
+}
+
+export interface MineLatinoCosmeticOrder {
+  id: string
+  cosmeticId: string
+  cosmeticName: string | null
+  provider: MineLatinoPaymentProvider['id']
+  amountMinor: number
+  currency: string
+  status: 'pending' | 'paid' | 'cancelled'
+  paymentReference: string | null
+  createdAt: number
+  updatedAt: number
+  deliveredAt: number | null
+  cancelledAt: number | null
+}
+
 export interface MineLatinoWebWindowOptions {
   /** Reused when the window is already open, so a second click focuses it. */
   id: string
@@ -359,6 +397,17 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
    * manually (e.g. right after creating a new instance).
    */
   syncAutoMods(): Promise<void>
+
+  getCosmeticsAccount(): Promise<MineLatinoCosmeticsAccount | undefined>
+  registerCosmeticsAccount(input: Required<MineLatinoAccountCredentials>): Promise<MineLatinoCosmeticsAccount>
+  loginCosmeticsAccount(input: MineLatinoAccountCredentials): Promise<MineLatinoCosmeticsAccount>
+  updateCosmeticsAccount(input: { email?: string; nick?: string }): Promise<MineLatinoCosmeticsAccount>
+  deleteCosmeticsAccount(): Promise<void>
+  logoutCosmeticsAccount(): Promise<void>
+  getCosmeticsPaymentProviders(): Promise<MineLatinoPaymentProvider[]>
+  getCosmeticsOrders(): Promise<MineLatinoCosmeticOrder[]>
+  createCosmeticsOrder(input: { cosmeticId: string; provider: MineLatinoPaymentProvider['id']; idempotencyKey: string }): Promise<MineLatinoCosmeticOrder>
+  cancelCosmeticsOrder(orderId: string): Promise<MineLatinoCosmeticOrder>
 }
 
 export const MineLatinoServiceKey: ServiceKey<MineLatinoService> = 'MineLatinoService'

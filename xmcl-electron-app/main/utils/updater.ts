@@ -183,15 +183,25 @@ async function getUpdateAsarViaBatArgs(
   elevatePath?: string,
 ): Promise<string[]> {
   const psPath = join(appDataPath, 'AutoUpdate.bat')
+  const backupAsarPath = `${appAsarPath}.bk`
+  const restart = `start /b "" /d "${process.cwd()}" ${process.argv.map((s) => `"${s}"`).join(' ')}`
   await writeFile(
     psPath,
     [
       '@echo off',
-      'chcp 65001',
+      'chcp 65001 >nul',
       '%WinDir%\\System32\\timeout.exe 2',
       `taskkill /f /im "${basename(process.argv[0])}"`,
-      `copy /Y "${updateAsarPath}" "${appAsarPath}"`,
-      `start /b "" /d "${process.cwd()}" ${process.argv.map((s) => `"${s}"`).join(' ')}`,
+      `copy /Y "${appAsarPath}" "${backupAsarPath}" >nul || goto restart_old`,
+      `copy /Y "${updateAsarPath}" "${appAsarPath}" >nul || goto rollback`,
+      `del /Q "${updateAsarPath}" >nul 2>nul`,
+      `del /Q "${backupAsarPath}" >nul 2>nul`,
+      restart,
+      'exit /b 0',
+      ':rollback',
+      `copy /Y "${backupAsarPath}" "${appAsarPath}" >nul`,
+      ':restart_old',
+      restart,
     ].join('\r\n'),
   )
 
@@ -403,6 +413,7 @@ export class ElectronUpdater implements LauncherAppUpdater {
         } catch (e) {
           if (isSystemError(e) && e.code === 'EXDEV') {
             await writeFile(appAsarPath, await readFile(updateAsarPath))
+            await unlinkAsync(updateAsarPath).catch(() => {})
           } else {
             throw e
           }

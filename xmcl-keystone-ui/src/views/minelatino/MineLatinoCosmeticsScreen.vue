@@ -2,7 +2,7 @@
   <section class="cosmetics-page visible-scroll">
     <header class="catalog-heading">
       <div><span class="eyebrow">MINELATINO · EXPRESA TU ESTILO</span><h1>Cosméticos</h1><p>Descubre tu próximo look. Pruébalo sobre tu skin antes de comprar.</p></div>
-      <v-btn variant="tonal" :loading="loading" @click="refresh">Actualizar</v-btn>
+      <div class="header-actions"><MineLatinoCosmeticsAccount :suggested-nick="playerName" @changed="onAccountChanged" /><v-btn variant="tonal" prepend-icon="receipt_long" @click="openOrders">Mis órdenes</v-btn><v-btn variant="tonal" :loading="loading" @click="refresh">Actualizar</v-btn></div>
     </header>
     <div class="catalog-toolbar">
       <v-text-field v-model="search" label="Buscar cosmético" prepend-inner-icon="search" hide-details clearable density="compact" />
@@ -36,22 +36,38 @@
               <h2>{{ selected.name }}</h2>
               <p class="description">{{ selected.description || 'Este cosmético todavía no tiene una descripción.' }}</p>
               <div class="price">{{ priceLabel(selected) }}</div>
-              <div class="recipient"><small>Cuenta seleccionada</small><strong>{{ playerName }}</strong><span>{{ gameProfile?.id || 'Inicia sesión con tu cuenta de Minecraft' }}</span></div>
-              <p class="preview-hint">La compra se vinculará al UUID premium verificado de tu cuenta, aunque cambies de nick. No se entrega a un nombre escrito sin verificar.</p>
-              <v-btn block color="primary" :disabled="selected.amountMinor === null || !gameProfile?.id" @click="checkout = true">Comprar · {{ selected.amountMinor === null ? 'Sin precio' : priceLabel(selected) }}</v-btn>
-              <span class="payment-note">Pagos próximamente · No se realizará ningún cargo</span>
+              <div class="recipient"><small>Cuenta de entrega</small><strong>{{ account?.nick || 'Inicia sesión en Cuenta MineLatino' }}</strong><span>{{ account?.accountId || 'Las compras requieren una cuenta MineLatino' }}</span></div>
+              <p class="preview-hint">La compra se vinculará a tu ID interno MineLatino. Funciona con cuentas premium y no premium, aunque otra persona utilice el mismo nick.</p>
+              <v-btn block color="primary" :disabled="selected.amountMinor === null || !account" @click="openCheckout">Comprar · {{ selected.amountMinor === null ? 'Sin precio' : priceLabel(selected) }}</v-btn>
+              <span class="payment-note">La entrega se realiza únicamente después de confirmar el pago.</span>
             </div>
           </div>
         </v-card-text>
       </v-card>
     </v-dialog>
     <v-dialog v-model="checkout" max-width="470">
-      <v-card title="Finalizar compra">
-        <v-card-text><p>{{ selected?.name }} · {{ playerName }}</p><p class="my-4">La tienda está en preparación. Todavía no hay proveedores de pago conectados.</p>
-          <v-btn v-for="provider in ['PayPal', 'Binance Pay', 'Mercado Pago']" :key="provider" disabled block class="mb-2">{{ provider }} · Próximamente</v-btn>
-          <p class="preview-hint">Tu cosmético solo se entregará cuando el servidor confirme el pago. No se ha creado ninguna compra.</p>
+      <v-card title="Finalizar compra" class="product-dialog">
+        <v-card-text><v-alert v-if="checkoutError" type="error" variant="tonal" class="mb-4">{{ checkoutError }}</v-alert>
+          <template v-if="createdOrder">
+            <v-alert :type="createdOrder.status === 'paid' ? 'success' : 'info'" variant="tonal" class="mb-4">{{ createdOrder.status === 'paid' ? 'Cosmético entregado.' : 'Orden creada y pendiente de confirmación.' }}</v-alert>
+            <div class="order-summary"><small>NÚMERO DE ORDEN</small><code>{{ createdOrder.id }}</code><strong>{{ createdOrder.cosmeticName || selected?.name }} · {{ formatOrderPrice(createdOrder) }}</strong></div>
+            <p class="my-4">Envía el número de orden y tu referencia de pago al equipo de MineLatino. Cuando un administrador valide el pago, el cosmético aparecerá automáticamente en el mod.</p>
+          </template>
+          <template v-else>
+            <p>{{ selected?.name }} · entrega a {{ account?.nick }}</p><p class="my-4">Selecciona el medio de pago. Por ahora puedes crear una orden manual para probar el sistema completo.</p>
+            <v-btn v-for="provider in providers" :key="provider.id" :disabled="!provider.enabled" :loading="creatingOrder && selectedProvider === provider.id" block class="mb-2" @click="createOrder(provider.id)">{{ provider.name }}{{ provider.enabled ? '' : ' · Próximamente' }}</v-btn>
+            <p class="preview-hint">Ningún cosmético se entrega con una orden pendiente. La entrega ocurre al confirmar el pago en la administración.</p>
+          </template>
         </v-card-text>
-        <v-card-actions><v-btn @click="checkout = false">Volver al producto</v-btn></v-card-actions>
+        <v-card-actions><v-btn @click="checkout = false">Cerrar</v-btn><v-spacer /><v-btn v-if="createdOrder" variant="tonal" @click="openOrders">Ver mis órdenes</v-btn></v-card-actions>
+      </v-card>
+    </v-dialog>
+    <v-dialog v-model="ordersDialog" max-width="700" scrollable>
+      <v-card title="Mis órdenes" class="product-dialog">
+        <v-card-text><v-alert v-if="ordersError" type="warning" variant="tonal" class="mb-3">{{ ordersError }}</v-alert>
+          <p v-if="ordersLoading">Actualizando historial…</p><p v-else-if="!orders.length" class="empty-state">Todavía no tienes órdenes.</p>
+          <div v-for="order in orders" :key="order.id" class="order-row"><div><strong>{{ order.cosmeticName || order.cosmeticId }}</strong><span>{{ new Date(order.createdAt).toLocaleString() }} · {{ formatOrderPrice(order) }}</span><code>{{ order.id }}</code></div><div class="order-state"><v-chip :color="order.status === 'paid' ? 'success' : order.status === 'cancelled' ? 'default' : 'warning'" size="small" variant="tonal">{{ orderStatus(order.status) }}</v-chip><v-btn v-if="order.status === 'pending'" size="small" variant="text" color="error" @click="cancelOrder(order.id)">Cancelar</v-btn></div></div>
+        </v-card-text><v-card-actions><v-btn @click="ordersDialog = false">Cerrar</v-btn><v-spacer /><v-btn variant="tonal" :loading="ordersLoading" @click="loadOrders">Actualizar</v-btn></v-card-actions>
       </v-card>
     </v-dialog>
   </section>
@@ -60,27 +76,65 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import steveSkin from '@/assets/steve_skin.png'
 import { kUserContext } from '@/composables/user'
+import { useService } from '@/composables/service'
 import { injection } from '@/util/inject'
+import { MineLatinoServiceKey, type MineLatinoCosmeticOrder, type MineLatinoCosmeticsAccount as CosmeticsAccount, type MineLatinoPaymentProvider } from '@xmcl/runtime-api'
 import { CosmeticProduct, cosmeticSlots, priceLabel, resourceUrl, useCosmeticsStore } from '@/composables/cosmeticsStore'
 import CosmeticPreview from './CosmeticPreview.vue'
 import CosmeticThumbnail from './CosmeticThumbnail.vue'
+import MineLatinoCosmeticsAccount from './MineLatinoCosmeticsAccount.vue'
 
 const { gameProfile } = injection(kUserContext)
+const service = useService(MineLatinoServiceKey)
 const skin = computed(() => gameProfile.value?.textures?.SKIN?.url || steveSkin)
 const playerName = computed(() => gameProfile.value?.name || 'Skin de ejemplo · Steve')
 const { products, loading, error, refresh } = useCosmeticsStore()
 const search = ref(''), slot = ref('ALL'), selected = ref<CosmeticProduct>(), dialog = ref(false), checkout = ref(false)
+const account = ref<CosmeticsAccount>(), providers = ref<MineLatinoPaymentProvider[]>([]), orders = ref<MineLatinoCosmeticOrder[]>([])
+const createdOrder = ref<MineLatinoCosmeticOrder>(), checkoutError = ref(''), creatingOrder = ref(false), selectedProvider = ref('')
+const ordersDialog = ref(false), ordersLoading = ref(false), ordersError = ref('')
 const categories = [{ title: 'Todos', value: 'ALL' }, ...Object.entries(cosmeticSlots).map(([value, title]) => ({ title, value }))]
 const filtered = computed(() => products.value.filter(p => (slot.value === 'ALL' || slot.value === p.slot) && `${p.name} ${p.description}`.toLocaleLowerCase().includes((search.value || '').toLocaleLowerCase())))
 const featured = computed(() => filtered.value[0])
 function open(product: CosmeticProduct) { selected.value = product; dialog.value = true; checkout.value = false }
+function onAccountChanged(value: CosmeticsAccount | undefined) { account.value = value; orders.value = []; createdOrder.value = undefined }
+async function openCheckout() {
+  if (!account.value) return
+  checkout.value = true; createdOrder.value = undefined; checkoutError.value = ''
+  try { providers.value = await service.getCosmeticsPaymentProviders() }
+  catch (e) { checkoutError.value = e instanceof Error ? e.message : 'No se pudieron cargar los medios de pago' }
+}
+async function createOrder(provider: MineLatinoPaymentProvider['id']) {
+  if (!selected.value || creatingOrder.value) return
+  creatingOrder.value = true; selectedProvider.value = provider; checkoutError.value = ''
+  try {
+    const random = globalThis.crypto?.randomUUID?.().replaceAll('-', '') || `${Date.now()}${Math.random().toString(36).slice(2)}`
+    createdOrder.value = await service.createCosmeticsOrder({ cosmeticId: selected.value.id, provider, idempotencyKey: `launcher-${random}`.slice(0, 80) })
+    await loadOrders()
+  } catch (e) { checkoutError.value = e instanceof Error ? e.message : 'No se pudo crear la orden' }
+  finally { creatingOrder.value = false; selectedProvider.value = '' }
+}
+async function loadOrders() {
+  ordersLoading.value = true; ordersError.value = ''
+  try { orders.value = account.value ? await service.getCosmeticsOrders() : [] }
+  catch (e) { ordersError.value = e instanceof Error ? e.message : 'No se pudo cargar el historial' }
+  finally { ordersLoading.value = false }
+}
+async function openOrders() { ordersDialog.value = true; checkout.value = false; await loadOrders() }
+async function cancelOrder(id: string) {
+  try { await service.cancelCosmeticsOrder(id); await loadOrders() }
+  catch (e) { ordersError.value = e instanceof Error ? e.message : 'No se pudo cancelar la orden' }
+}
+function orderStatus(status: MineLatinoCosmeticOrder['status']) { return status === 'paid' ? 'Entregada' : status === 'cancelled' ? 'Cancelada' : 'Pendiente' }
+function formatOrderPrice(order: MineLatinoCosmeticOrder) { return new Intl.NumberFormat('es', { style: 'currency', currency: order.currency }).format(order.amountMinor / 100) }
 watch(() => gameProfile.value?.id, () => { checkout.value = false })
 watch(dialog, value => { if (!value) checkout.value = false })
-onMounted(refresh)
+onMounted(async () => { await Promise.all([refresh(), service.getCosmeticsAccount().then(value => { account.value = value })]) })
 </script>
 <style scoped>
 .cosmetics-page { height: 100%; overflow-y: auto; padding: 28px; color: var(--ml-text); }
 .catalog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
 .eyebrow { color: var(--ml-accent-text, #edba62); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
 h1 { font-size: 32px; letter-spacing: -.04em; margin: 6px 0; } h2 { font-size: 18px; margin: 6px 0 10px; }
 p { color: var(--ml-dim, #b4b8c3); font-size: 13px; line-height: 1.6; }
@@ -107,6 +161,8 @@ p { color: var(--ml-dim, #b4b8c3); font-size: 13px; line-height: 1.6; }
 .recipient span { font-size: 10px; overflow-wrap: anywhere; color: #9ca3b4; }
 .preview-hint, .payment-note { font-size: 11px; color: #a5acbb; margin-top: 8px; }
 .empty-state { padding: 36px; text-align: center; border: 1px dashed var(--ml-border); border-radius: 16px; }
+.order-summary { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid #ffffff18; border-radius: 14px; background: #ffffff06; }.order-summary small,.order-row span { color: #9ca3b4; font-size: 11px; }.order-summary code,.order-row code { overflow-wrap: anywhere; font-size: 11px; color: #edba62; }
+.order-row { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #ffffff12; }.order-row>div:first-child { min-width: 0; display: flex; flex-direction: column; gap: 4px; }.order-state { display: flex; flex-direction: column; align-items: end; gap: 4px; flex-shrink: 0; }
 @media (max-width: 1050px) { .catalog-layout { grid-template-columns: 1fr; } .fitting-room { display: none; } }
 @media (max-width: 850px) { .cosmetics-page { padding: 16px; } .detail-grid { grid-template-columns: 1fr; } .catalog-heading { align-items: start; } }
 @media (prefers-reduced-motion: reduce) { .product-card { transition: none; } }

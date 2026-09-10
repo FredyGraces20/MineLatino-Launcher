@@ -1,13 +1,18 @@
 import { readFile, outputJson, readdir, remove } from 'fs-extra'
 import { join } from 'path'
+import { rcompare, valid } from 'semver'
 import {
   AUTHORITY_MICROSOFT,
   MineLatinoServiceKey,
   MarketType,
   type MineLatinoAutoMod,
   type MineLatinoAutoModVersion,
+  type MineLatinoAccountCredentials,
+  type MineLatinoCosmeticsAccount,
+  type MineLatinoCosmeticOrder,
   type MineLatinoConfig,
   type MineLatinoNewsEmbed,
+  type MineLatinoPaymentProvider,
   type MineLatinoNewsItem,
   type MineLatinoNewsResult,
   type MineLatinoPlaytimeLeaderboardEntry,
@@ -57,6 +62,9 @@ const STORE_PRODUCTS_TTL_MS = 5 * 60_000
 /** Periodic refresh while the launcher stays open. */
 const REFRESH_INTERVAL_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 15_000
+const COSMETICS_API = (process.env.MINELATINO_COSMETICS_API || 'https://minelatino-cosmetics-production.up.railway.app').replace(/\/$/, '')
+const COSMETICS_SECRET_SERVICE = 'MineLatino Cosmetics'
+const COSMETICS_SECRET_ACCOUNT = 'player-session'
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -179,13 +187,17 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   #storeProducts = new Map<number, MineLatinoStoreProductsResult>()
   #configFetchedAt = 0
   #refreshing: Promise<void> | undefined
+  #defaultInstanceSync: Promise<void> | undefined
+  #autoModsSync: Promise<void> | undefined
   #timer: NodeJS.Timeout | undefined
   #windows: MineLatinoWebWindows
   #playtimeSessions = new Map<string, Promise<string | undefined>>()
+  #cosmeticsSession: { token: string; account: MineLatinoCosmeticsAccount } | undefined
 
   constructor(@Inject(LauncherAppKey) app: LauncherApp) {
     super(app, async () => {
       await this.#restore()
+      await this.#restoreCosmeticsSession()
       if (!this.#backendUrl) {
         this.warn('No MineLatino backend URL configured; running on the bundled fallback config. Set MINELATINO_BACKEND_URL or DEFAULT_BACKEND_URL in main/minelatino/config.ts.')
       }
@@ -197,6 +209,10 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       // and its one-time end token. It never trusts a name or duration sent by
       // the client.
       const launchService = await this.app.registry.get(LaunchService)
+      launchService.registerMiddleware({
+        name: 'MineLatino cosmetics account',
+        onBeforeLaunch: async input => { await this.#writeCosmeticsGameSession(input.gameDirectory) },
+      })
       launchService.on('minecraft-start', (options) => {
         this.#playtimeSessions.set(options.launchId, this.#openPlaytimeSession(options.user))
       })
@@ -308,6 +324,79 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     // body is read before the status is judged.
     const body = await response.json().catch(() => undefined)
     return { ok: response.ok, body }
+  }
+
+  #normalizeCosmeticsAccount(value: unknown): MineLatinoCosmeticsAccount | undefined {
+    const account = asObject(value)
+    const accountId = asString(account.accountId)
+    const email = asString(account.email)
+    const nick = asString(account.nick)
+    const status = asString(account.status)
+    if (!/^[a-f0-9]{32}$/.test(accountId) || !email || !/^[A-Za-z0-9_]{3,16}$/.test(nick)
+      || !['active', 'suspended', 'deleted'].includes(status)) return undefined
+    return {
+      accountId,
+      email,
+      nick,
+      status: status as MineLatinoCosmeticsAccount['status'],
+      createdAt: asNumber(account.createdAt, 0),
+      updatedAt: asNumber(account.updatedAt, 0),
+      deletedAt: typeof account.deletedAt === 'number' ? account.deletedAt : null,
+    }
+  }
+
+  #normalizeCosmeticOrder(value: unknown): MineLatinoCosmeticOrder | undefined {
+    const order = asObject(value)
+    const id = asString(order.id), cosmeticId = asString(order.cosmeticId), provider = asString(order.provider)
+    const status = asString(order.status), amountMinor = asNumber(order.amountMinor, -1), currency = asString(order.currency)
+    if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(cosmeticId)
+      || !['manual', 'paypal', 'binance', 'mercadopago'].includes(provider)
+      || !['pending', 'paid', 'cancelled'].includes(status) || !Number.isSafeInteger(amountMinor) || amountMinor <= 0
+      || !/^[A-Z]{3}$/.test(currency)) return undefined
+    return {
+      id, cosmeticId, cosmeticName: typeof order.cosmeticName === 'string' ? order.cosmeticName : null,
+      provider: provider as MineLatinoCosmeticOrder['provider'], amountMinor, currency,
+      status: status as MineLatinoCosmeticOrder['status'],
+      paymentReference: typeof order.paymentReference === 'string' ? order.paymentReference : null,
+      createdAt: asNumber(order.createdAt, 0), updatedAt: asNumber(order.updatedAt, 0),
+      deliveredAt: typeof order.deliveredAt === 'number' ? order.deliveredAt : null,
+      cancelledAt: typeof order.cancelledAt === 'number' ? order.cancelledAt : null,
+    }
+  }
+
+  async #restoreCosmeticsSession() {
+    try {
+      const raw = await this.app.secretStorage.get(COSMETICS_SECRET_SERVICE, COSMETICS_SECRET_ACCOUNT)
+      if (!raw) return
+      const parsed = asObject(JSON.parse(raw))
+      const account = this.#normalizeCosmeticsAccount(parsed.account)
+      const token = asString(parsed.token)
+      if (account && token.length >= 32) this.#cosmeticsSession = { token, account }
+    } catch {
+      this.#cosmeticsSession = undefined
+    }
+  }
+
+  async #persistCosmeticsSession() {
+    await this.app.secretStorage.put(
+      COSMETICS_SECRET_SERVICE,
+      COSMETICS_SECRET_ACCOUNT,
+      this.#cosmeticsSession ? JSON.stringify(this.#cosmeticsSession) : '',
+    )
+  }
+
+  async #cosmeticsRequest(path: string, options: RequestInit = {}) {
+    const response = await this.app.fetch(`${COSMETICS_API}${path}`, {
+      ...options,
+      headers: { Accept: 'application/json', 'User-Agent': this.app.userAgent, ...options.headers },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    const result = asObject(await response.json().catch(() => undefined))
+    if (!response.ok) throw Object.assign(
+      new Error(asString(result.error) || `Cosmetics API HTTP ${response.status}`),
+      { status: response.status },
+    )
+    return result
   }
 
   /** Concurrent callers share one in-flight refresh. */
@@ -490,6 +579,159 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     return this.#backendUrl
   }
 
+  async getCosmeticsAccount(): Promise<MineLatinoCosmeticsAccount | undefined> {
+    await this.initialize()
+    if (!this.#cosmeticsSession) return undefined
+    try {
+      const result = await this.#cosmeticsRequest('/v1/account/me', {
+        headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}` },
+      })
+      const account = this.#normalizeCosmeticsAccount(result.account)
+      if (!account) throw new Error('Respuesta de cuenta inválida')
+      this.#cosmeticsSession.account = account
+      await this.#persistCosmeticsSession()
+      return account
+    } catch (error) {
+      this.warn(`MineLatino cosmetics account could not refresh: ${(error as Error).message}`)
+      if ([401, 403].includes((error as Error & { status?: number }).status ?? 0)) {
+        this.#cosmeticsSession = undefined
+        await this.#persistCosmeticsSession()
+        return undefined
+      }
+      return this.#cosmeticsSession.account
+    }
+  }
+
+  async #openCosmeticsAccount(path: string, input: MineLatinoAccountCredentials) {
+    const result = await this.#cosmeticsRequest(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const account = this.#normalizeCosmeticsAccount(result.account)
+    const token = asString(result.token)
+    if (!account || token.length < 32) throw new Error('Respuesta de sesión inválida')
+    this.#cosmeticsSession = { token, account }
+    await this.#persistCosmeticsSession()
+    return account
+  }
+
+  registerCosmeticsAccount(input: Required<MineLatinoAccountCredentials>) {
+    return this.#openCosmeticsAccount('/v1/account/register', input)
+  }
+
+  loginCosmeticsAccount(input: MineLatinoAccountCredentials) {
+    return this.#openCosmeticsAccount('/v1/account/login', input)
+  }
+
+  async updateCosmeticsAccount(input: { email?: string; nick?: string }) {
+    await this.initialize()
+    if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
+    const result = await this.#cosmeticsRequest('/v1/account/me', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const account = this.#normalizeCosmeticsAccount(result.account)
+    if (!account) throw new Error('Respuesta de cuenta inválida')
+    this.#cosmeticsSession.account = account
+    await this.#persistCosmeticsSession()
+    return account
+  }
+
+  async logoutCosmeticsAccount() {
+    await this.initialize()
+    const session = this.#cosmeticsSession
+    this.#cosmeticsSession = undefined
+    await this.#persistCosmeticsSession()
+    if (session) await this.#cosmeticsRequest('/v1/account/logout-all', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => undefined)
+  }
+
+  async deleteCosmeticsAccount() {
+    await this.initialize()
+    if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
+    await this.#cosmeticsRequest('/v1/account/me', {
+      method: 'DELETE', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}` },
+    })
+    this.#cosmeticsSession = undefined
+    await this.#persistCosmeticsSession()
+  }
+
+  async getCosmeticsPaymentProviders(): Promise<MineLatinoPaymentProvider[]> {
+    const result = await this.#cosmeticsRequest('/v1/storefront/payments')
+    if (!Array.isArray(result.providers)) throw new Error('Configuración de pagos inválida')
+    return result.providers.map((value) => {
+      const provider = asObject(value), id = asString(provider.id), name = asString(provider.name)
+      if (!['manual', 'paypal', 'binance', 'mercadopago'].includes(id) || !name) throw new Error('Proveedor de pago inválido')
+      return { id, name, enabled: provider.enabled === true,
+        instructions: typeof provider.instructions === 'string' ? provider.instructions : null } as MineLatinoPaymentProvider
+    })
+  }
+
+  async getCosmeticsOrders(): Promise<MineLatinoCosmeticOrder[]> {
+    await this.initialize()
+    if (!this.#cosmeticsSession) return []
+    const result = await this.#cosmeticsRequest('/v1/account/orders', {
+      headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}` },
+    })
+    if (!Array.isArray(result.items)) throw new Error('Historial de órdenes inválido')
+    return result.items.map(value => this.#normalizeCosmeticOrder(value)).filter((value): value is MineLatinoCosmeticOrder => !!value)
+  }
+
+  async createCosmeticsOrder(input: { cosmeticId: string; provider: MineLatinoPaymentProvider['id']; idempotencyKey: string }) {
+    await this.initialize()
+    if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
+    const result = await this.#cosmeticsRequest('/v1/account/orders', {
+      method: 'POST', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const order = this.#normalizeCosmeticOrder(result.order)
+    if (!order) throw new Error('La orden creada es inválida')
+    return order
+  }
+
+  async cancelCosmeticsOrder(orderId: string) {
+    await this.initialize()
+    if (!this.#cosmeticsSession) throw new Error('Inicia sesión con tu cuenta MineLatino')
+    const result = await this.#cosmeticsRequest(`/v1/account/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: 'POST', headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' }, body: '{}',
+    })
+    const order = this.#normalizeCosmeticOrder(result.order)
+    if (!order) throw new Error('La orden actualizada es inválida')
+    return order
+  }
+
+  async #writeCosmeticsGameSession(gameDirectory: string) {
+    const configPath = join(gameDirectory, 'config', 'minelatino-cosmetics', 'config.json')
+    const base = { backendUrl: COSMETICS_API }
+    if (!this.#cosmeticsSession) {
+      await outputJson(configPath, base, { spaces: 2 })
+      return
+    }
+    try {
+      const result = await this.#cosmeticsRequest('/v1/account/game-token', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.#cosmeticsSession.token}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      const token = asString(result.token)
+      if (token.length < 32) throw new Error('Token de juego inválido')
+      await outputJson(configPath, {
+        ...base,
+        accountToken: token,
+        accountId: this.#cosmeticsSession.account.accountId,
+        accountExpiresAt: asNumber(result.expiresAt, Date.now() + 60 * 60 * 1000),
+      }, { spaces: 2 })
+    } catch (error) {
+      this.warn(`MineLatino cosmetics game session could not be prepared: ${(error as Error).message}`)
+      await outputJson(configPath, base, { spaces: 2 })
+    }
+  }
+
   async openWebWindow(options: MineLatinoWebWindowOptions): Promise<void> {
     await this.initialize()
     // Never let a config value open a privileged scheme in a launcher window.
@@ -613,14 +855,15 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
 
   /**
    * Read the JAR filenames already present in an instance's mods/ directory.
-   * Returns an empty set when the directory does not exist or is unreadable.
+   * Keeps the original filename for case-sensitive filesystems and returns an
+   * empty map when the directory does not exist or is unreadable.
    */
-  async #instanceModFiles(instancePath: string): Promise<Set<string>> {
+  async #instanceModFiles(instancePath: string): Promise<Map<string, string>> {
     try {
       const entries = await readdir(join(instancePath, 'mods'))
-      return new Set(entries.filter(e => e.endsWith('.jar')).map(e => e.toLowerCase()))
+      return new Map(entries.filter(e => e.toLowerCase().endsWith('.jar')).map(e => [e.toLowerCase(), e]))
     } catch {
-      return new Set()
+      return new Map()
     }
   }
 
@@ -636,8 +879,10 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
     const matches = mod.versions.filter(
       v => v.loader === loader && v.minecraftVersions.includes(minecraft),
     )
-    // Return the last entry (assumed newest) when multiple match.
-    return matches.length > 0 ? matches[matches.length - 1] : undefined
+    return matches.sort((a, b) => {
+      const av = valid(a.modVersion), bv = valid(b.modVersion)
+      return av && bv ? rcompare(av, bv) : b.modVersion.localeCompare(a.modVersion, undefined, { numeric: true })
+    })[0]
   }
 
   #presetSignature(preset: MineLatinoPreset) {
@@ -747,7 +992,15 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
    * marker in the instance records which starter set was applied so config
    * refreshes do not repeatedly reinstall performance mods.
    */
-  async #ensureDefaultInstanceThenSync() {
+  #ensureDefaultInstanceThenSync(): Promise<void> {
+    if (!this.#defaultInstanceSync) {
+      this.#defaultInstanceSync = this.#ensureDefaultInstanceThenSyncInternal()
+        .finally(() => { this.#defaultInstanceSync = undefined })
+    }
+    return this.#defaultInstanceSync
+  }
+
+  async #ensureDefaultInstanceThenSyncInternal() {
     try {
       const instanceService = await this.app.registry.get(InstanceService)
       const preset = this.#config.presets.find(p => p.recommended) ?? this.#config.presets[0]
@@ -769,20 +1022,43 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
       }
 
       this.log(`[autoInstance] Recommended profile missing — creating "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
-      const runtime = { minecraft: preset.minecraftVersion } as { minecraft: string, fabricLoader?: string }
-      if (preset.loader === 'fabric') {
-        const metadata = await this.app.registry.get(VersionMetadataService)
-        const fabricVersions = await metadata.getFabricVersions()
-        if (!fabricVersions.gameVersions.includes(preset.minecraftVersion)) {
-          this.warn(`[autoInstance] Fabric does not support Minecraft ${preset.minecraftVersion}; skipping.`)
+      const runtime: {
+        minecraft: string
+        fabricLoader?: string
+        quiltLoader?: string
+        forge?: string
+        neoForged?: string
+      } = { minecraft: preset.minecraftVersion }
+      const metadata = await this.app.registry.get(VersionMetadataService)
+      if (preset.loaderVersion) {
+        if (preset.loader === 'fabric') runtime.fabricLoader = preset.loaderVersion
+        else if (preset.loader === 'quilt') runtime.quiltLoader = preset.loaderVersion
+        else if (preset.loader === 'forge') runtime.forge = preset.loaderVersion
+        else if (preset.loader === 'neoforge') runtime.neoForged = preset.loaderVersion
+      } else if (preset.loader === 'fabric' || preset.loader === 'quilt') {
+        const fabric = preset.loader === 'fabric'
+        const loaderMetadata = fabric ? await metadata.getFabricVersions() : await metadata.getQuiltVersions()
+        if (!loaderMetadata.gameVersions.includes(preset.minecraftVersion)) {
+          this.warn(`[autoInstance] ${preset.loader} does not support Minecraft ${preset.minecraftVersion}; skipping.`)
           return
         }
-        const loaderVersion = fabricVersions.loaderVersions[0]?.version
+        const loaderVersion = loaderMetadata.loaderVersions[0]?.version
         if (!loaderVersion) {
-          this.warn('[autoInstance] No Fabric loader version available; skipping.')
+          this.warn(`[autoInstance] No ${preset.loader} loader version available; skipping.`)
           return
         }
-        runtime.fabricLoader = loaderVersion
+        if (fabric) runtime.fabricLoader = loaderVersion
+        else runtime.quiltLoader = loaderVersion
+      } else if (preset.loader === 'forge') {
+        const versions = await metadata.getForgeVersions(preset.minecraftVersion)
+        const loaderVersion = versions.find(v => v.type === 'recommended')?.version ?? versions[0]?.version
+        if (!loaderVersion) { this.warn(`[autoInstance] Forge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
+        runtime.forge = loaderVersion
+      } else if (preset.loader === 'neoforge') {
+        const versions = await metadata.getNeoForgedVersions(preset.minecraftVersion)
+        const loaderVersion = versions.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0]
+        if (!loaderVersion) { this.warn(`[autoInstance] NeoForge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
+        runtime.neoForged = loaderVersion
       }
       const path = await instanceService.createInstance({
         name: preset.name,
@@ -816,7 +1092,14 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
    * verifies the replacement in its workspace first. Only after that succeeds
    * are older versions removed from the mods/ directory.
    */
-  async syncAutoMods(): Promise<void> {
+  syncAutoMods(): Promise<void> {
+    if (!this.#autoModsSync) {
+      this.#autoModsSync = this.#syncAutoModsInternal().finally(() => { this.#autoModsSync = undefined })
+    }
+    return this.#autoModsSync
+  }
+
+  async #syncAutoModsInternal(): Promise<void> {
     const autoMods = this.#config.autoMods
     if (!autoMods || autoMods.length === 0) return
 
@@ -839,8 +1122,9 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
 
         const expectedFile = match.fileName.toLowerCase()
         const prefix = `${mod.id}-${loader}-${minecraft}-`
-        const oldFiles = [...existingMods].filter(file =>
+        const oldFiles = [...existingMods.entries()].filter(([file]) =>
           file !== expectedFile && file.startsWith(prefix) && file.endsWith('.jar'))
+          .map(([, originalName]) => originalName)
 
         // Build an InstanceFile for the transactional download pipeline. It uses
         // a separate workspace and validates SHA-1 before committing this path.
@@ -859,7 +1143,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
               oldFiles: [],
               files: [instanceFile],
             })
-            existingMods.add(expectedFile)
+            existingMods.set(expectedFile, match.fileName)
             this.log(`[autoMods] Installed ${match.fileName}; old versions can now be removed`)
           } catch (err) {
             // Keep every old JAR untouched when download, size/hash validation,
@@ -874,7 +1158,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         for (const file of oldFiles) {
           try {
             await remove(join(instancePath, 'mods', file))
-            existingMods.delete(file)
+            existingMods.delete(file.toLowerCase())
             this.log(`[autoMods] Removed old ${file} from ${instance.name || instancePath}`)
           } catch (err) {
             this.warn(`[autoMods] Failed to remove old ${file}: ${(err as Error).message}`)
