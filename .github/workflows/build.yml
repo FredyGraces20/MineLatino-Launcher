@@ -152,7 +152,7 @@ jobs:
           # with the other jobs. The job is currently disabled (`if: false`).
           filter: blob:none
       - name: Download Ubuntu Build Artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: build-Linux
           path: ./
@@ -278,7 +278,7 @@ jobs:
       - build
     steps:
       - name: Download Source Map
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sourcemap
           path: sourcemap/${{github.run_number}}
@@ -313,7 +313,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile --filter action-*
       - name: Download Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: build-*
           merge-multiple: true
