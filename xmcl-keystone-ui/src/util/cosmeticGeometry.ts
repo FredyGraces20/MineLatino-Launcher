@@ -1,7 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
 
 type Vec = [number, number, number]
-interface Element { from: Vec; to: Vec; rotation?: { axis: 'x' | 'y' | 'z'; origin: Vec; angle: number; rescale?: boolean }; faces: Record<string, { uv?: number[]; rotation?: number; texture?: string | null }> }
+interface Element { from: Vec; to: Vec; rotation?: { axis: 'x' | 'y' | 'z'; origin: Vec; angle: number; rescale?: boolean }; faces: Record<string, { uv?: number[]; rotation?: number; texture?: string | null }>; minelatino_vertices?: Record<string, Vec[]> }
 export interface JavaCosmeticModel { texture_size?: [number, number]; textures?: Record<string, string>; elements: Element[]; display?: { head?: { translation?: Vec; rotation?: Vec; scale?: Vec }; minelatino_backpack?: { translation?: Vec; rotation?: Vec; scale?: Vec } } }
 export function textureName(model: JavaCosmeticModel, reference = '') {
   const visited = new Set<string>()
@@ -40,9 +40,11 @@ export function cosmeticGeometry(model: JavaCosmeticModel) {
       groups.push({ start: positions.length / 3, count: 6, materialIndex: names.indexOf(name) })
       const rect = face.uv ?? defaults[direction], turn = face.rotation ?? 0
       if (!vector(rect, 4) || ![0,90,180,270].includes(turn)) throw new Error('UV inválidas')
-      const vertices = corners.map(c => {
+      const explicit = e.minelatino_vertices?.[direction]
+      if (explicit !== undefined && (!Array.isArray(explicit) || explicit.length !== 4 || !explicit.every(vertex => vector(vertex, 3)))) throw new Error('Vértices explícitos inválidos')
+      const vertices = (explicit ?? corners).map(c => {
         const p = new Vector3(c[0], c[1], c[2]), r = e.rotation
-        if (r) {
+        if (r && explicit === undefined) {
           if (!['x','y','z'].includes(r.axis) || !vector(r.origin, 3) || !Number.isFinite(r.angle)) throw new Error('Rotación inválida')
           const origin = new Vector3(...r.origin), angle = r.angle * Math.PI / 180
           p.sub(origin).applyAxisAngle(new Vector3(r.axis === 'x' ? 1 : 0, r.axis === 'y' ? 1 : 0, r.axis === 'z' ? 1 : 0), angle)

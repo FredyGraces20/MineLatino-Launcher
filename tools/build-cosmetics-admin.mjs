@@ -13,7 +13,7 @@ await build({
     b.onResolve({ filter: /^three$/ }, () => ({ path: 'three', namespace: 'admin' }));
     b.onResolve({ filter: /^@\/composables\/cosmeticsStore$/ }, () => ({ path: 'resources', namespace: 'admin' }));
     b.onLoad({ filter: /.*/, namespace: 'admin' }, ({ path }) => ({ contents: path === 'three'
-      ? 'export const { BufferGeometry, Float32BufferAttribute, Vector3, Mesh, MeshStandardMaterial, NearestFilter, SRGBColorSpace, Texture } = globalThis.THREE;'
+      ? 'export const { BufferGeometry, DoubleSide, Float32BufferAttribute, Vector3, Mesh, MeshStandardMaterial, NearestFilter, SRGBColorSpace, Texture } = globalThis.THREE;'
       : 'export function resourceUrl(product) { return `/v1/resources/${encodeURIComponent(product.id)}?v=${encodeURIComponent(product.resourceVersion || "")}`; }', loader: 'js' }));
   } }],
 });

@@ -31,4 +31,11 @@ describe('cosmetic Java model preview', () => {
     expect(uvArr[4]).toBeCloseTo(1)
     geometry.dispose()
   })
+  it('uses explicit vertices produced from bbmodel hierarchy', () => {
+    const geometry = cosmeticGeometry({ elements: [{ from: [0,0,0], to: [2,2,2], faces: { north: { uv: [0,0,16,16] } },
+      minelatino_vertices: { north: [[-2,2,0],[0,2,0],[0,0,0],[-2,0,0]] } }] })
+    const position = geometry.getAttribute('position') as BufferAttribute
+    expect([position.getX(0), position.getY(0), position.getZ(0)]).toEqual([-10,-6,-8])
+    geometry.dispose()
+  })
 })
