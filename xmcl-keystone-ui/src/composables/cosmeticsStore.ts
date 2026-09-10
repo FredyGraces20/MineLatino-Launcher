@@ -1,6 +1,6 @@
 import { onScopeDispose, ref } from 'vue'
 
-export const cosmeticSlots = { HAT: 'Cabeza', CAPE: 'Capa', WINGS: 'Alas', BACKPACK: 'Mochila', PET: 'Mascota', SKIN: 'Skins' } as const
+export const cosmeticSlots = { HAT: 'Cabeza', CAPE: 'Capa', WINGS: 'Alas', BACKPACK: 'Mochila', PET: 'Mascota' } as const
 export interface CosmeticProduct {
   id: string
   name: string
@@ -10,7 +10,6 @@ export interface CosmeticProduct {
   currency: string
   hasTexture: boolean
   hasModel: boolean
-  hasAvatarPackage: boolean
   textureCount: number
   resourceVersion: string
 }
@@ -24,20 +23,17 @@ export function priceLabel(product: CosmeticProduct) {
   return product.amountMinor === null ? 'Precio por confirmar' : new Intl.NumberFormat('es', { style: 'currency', currency: product.currency }).format(product.amountMinor / 100)
 }
 export function parseProduct(value: unknown): CosmeticProduct {
-  const p = value as CosmeticProduct & { hasAvatarPackage?: unknown }
+  const p = value as CosmeticProduct
   if (!p || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.id) || typeof p.name !== 'string'
     || !Object.hasOwn(cosmeticSlots, p.slot) || typeof p.description !== 'string'
     || !['USD', 'EUR', 'UYU', 'ARS', 'BRL', 'MXN'].includes(p.currency)
     || (p.amountMinor !== null && (!Number.isSafeInteger(p.amountMinor) || p.amountMinor <= 0))
     || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean'
-    || (p.hasAvatarPackage !== undefined && typeof p.hasAvatarPackage !== 'boolean')
     || !Number.isSafeInteger(p.textureCount) || p.textureCount < 0 || p.textureCount > 32
     || typeof p.resourceVersion !== 'string') {
     throw new Error('El catálogo devolvió un producto inválido')
   }
-  // Older/cache-warmed service instances do not include this field. Treating
-  // it as false keeps conventional cosmetics visible during rolling deploys.
-  return { ...p, hasAvatarPackage: p.hasAvatarPackage ?? false } as CosmeticProduct
+  return p
 }
 export function useCosmeticsStore() {
   const products = ref<CosmeticProduct[]>([])

@@ -22,10 +22,6 @@ let observer: IntersectionObserver | undefined, request: AbortController | undef
 function prepare() {
   observer?.disconnect(); request?.abort()
   dataUrl.value = ''; fallbackSrc.value = ''; renderError.value = ''
-  if (props.product.slot === 'SKIN') {
-    renderError.value = props.product.hasAvatarPackage ? 'Skin 3D animada disponible dentro del juego' : 'Falta publicar el paquete de personaje'
-    return
-  }
   if (!props.product.hasTexture) return
   if (!props.product.hasModel) { fallbackSrc.value = resourceUrl(props.product); return }
   // Lazy render: only build the 3D snapshot when the thumb scrolls into view.
