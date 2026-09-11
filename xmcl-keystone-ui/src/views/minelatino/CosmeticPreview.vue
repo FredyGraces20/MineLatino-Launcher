@@ -18,6 +18,7 @@ import { Group, Mesh } from 'three'
 import { CosmeticProduct, resourceUrl } from '@/composables/cosmeticsStore'
 import { JavaCosmeticModel } from '@/util/cosmeticGeometry'
 import { createCosmeticMesh, disposeCosmeticMesh } from '@/util/cosmeticMaterials'
+import { petPreviewPosition } from '@/util/cosmeticPlacement'
 
 const props = defineProps<{ product: CosmeticProduct; skin: string }>()
 const canvas = ref<HTMLCanvasElement>()
@@ -92,9 +93,9 @@ async function load() {
         }
         target.playerObject.skin.head.add(compatibleAttachment)
       } else if (product.slot === 'PET') {
-        // Same 1.15-block lateral anchor used by the web editor and game mod.
-        // It clears the animated player arm instead of placing the pet behind it.
-        attachment.position.set(-18.4, -8, 0)
+        // skinview3d is centered and Y-up: web Y=1 is +16 px. Minecraft's
+        // equivalent is Y=-0.5 in its head-relative, Y-down model space.
+        attachment.position.set(...petPreviewPosition())
         attachment.scale.setScalar(0.55)
         target.playerObject.add(compatibleAttachment)
       } else {
