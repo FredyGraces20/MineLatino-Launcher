@@ -191,35 +191,100 @@ function trustedUpdateUrl(raw: string): string {
   return url.toString()
 }
 
-async function getUpdateAsarViaBatArgs(
+const WINDOWS_UPDATE_HELPER = String.raw`
+'use strict'
+const { existsSync } = require('fs')
+const { readFile, rename, unlink } = require('fs/promises')
+const { spawn } = require('child_process')
+
+const sleep = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds))
+
+async function waitForParent(pid) {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    try {
+      process.kill(pid, 0)
+      await sleep(250)
+    } catch {
+      return
+    }
+  }
+}
+
+async function restoreBackup(appAsarPath, backupAsarPath) {
+  if (!existsSync(appAsarPath) && existsSync(backupAsarPath)) {
+    await rename(backupAsarPath, appAsarPath).catch(() => {})
+  }
+}
+
+async function replaceAsar(config) {
+  const backupAsarPath = config.appAsarPath + '.bk'
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    await restoreBackup(config.appAsarPath, backupAsarPath)
+    await unlink(backupAsarPath).catch(() => {})
+    try {
+      await rename(config.appAsarPath, backupAsarPath)
+      await rename(config.updateAsarPath, config.appAsarPath)
+      await unlink(backupAsarPath).catch(() => {})
+      return true
+    } catch {
+      await restoreBackup(config.appAsarPath, backupAsarPath)
+      await sleep(250)
+    }
+  }
+  return false
+}
+
+async function main() {
+  const configPath = process.argv[2]
+  const config = JSON.parse(await readFile(configPath, 'utf8'))
+  await waitForParent(config.parentPid)
+  await replaceAsar(config)
+
+  const environment = { ...process.env }
+  delete environment.ELECTRON_RUN_AS_NODE
+  const child = spawn(config.executable, config.arguments, {
+    cwd: config.cwd,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    env: environment,
+  })
+  child.unref()
+
+  await unlink(configPath).catch(() => {})
+  await unlink(__filename).catch(() => {})
+}
+
+main().catch(() => process.exitCode = 1)
+`
+
+/**
+ * Creates a tiny Node helper that runs through Electron's own executable.
+ * This avoids cmd.exe, PowerShell, batch files, visible consoles and UAC.
+ * The pending ASAR has already been downloaded and SHA-256 verified before
+ * this helper is started; it only performs the atomic swap after we exit.
+ */
+async function prepareWindowsUpdateHelper(
   appAsarPath: string,
   updateAsarPath: string,
   appDataPath: string,
 ): Promise<string[]> {
-  const psPath = join(appDataPath, 'AutoUpdate.bat')
-  const backupAsarPath = `${appAsarPath}.bk`
-  const restart = `start /b "" /d "${process.cwd()}" ${process.argv.map((s) => `"${s}"`).join(' ')}`
-  await writeFile(
-    psPath,
-    [
-      '@echo off',
-      'chcp 65001 >nul',
-      '%WinDir%\\System32\\timeout.exe 2',
-      `taskkill /f /im "${basename(process.argv[0])}"`,
-      `copy /Y "${appAsarPath}" "${backupAsarPath}" >nul || goto restart_old`,
-      `copy /Y "${updateAsarPath}" "${appAsarPath}" >nul || goto rollback`,
-      `del /Q "${updateAsarPath}" >nul 2>nul`,
-      `del /Q "${backupAsarPath}" >nul 2>nul`,
-      restart,
-      'exit /b 0',
-      ':rollback',
-      `copy /Y "${backupAsarPath}" "${appAsarPath}" >nul`,
-      ':restart_old',
-      restart,
-    ].join('\r\n'),
-  )
+  const helperPath = join(appDataPath, `MineLatinoAutoUpdate-${process.pid}.cjs`)
+  const configPath = join(appDataPath, `MineLatinoAutoUpdate-${process.pid}.json`)
+  await writeFile(helperPath, WINDOWS_UPDATE_HELPER, 'utf8')
+  await writeFile(configPath, JSON.stringify({
+    parentPid: process.pid,
+    appAsarPath,
+    updateAsarPath,
+    executable: process.execPath,
+    arguments: process.argv.slice(1),
+    cwd: process.cwd(),
+  }), 'utf8')
+  // Clean up the legacy helper so older upgrades do not leave
+  // an alarming AutoUpdate.bat behind in the application-data directory.
+  await unlinkAsync(join(appDataPath, 'AutoUpdate.bat')).catch(() => {})
 
-  return ['cmd.exe', '/d', '/c', psPath]
+  return [process.execPath, helperPath, configPath]
 }
 /**
  * Download the full update. This size can be larger as it carry the whole electron thing...
@@ -405,7 +470,7 @@ export class ElectronUpdater implements LauncherAppUpdater {
       }
       this.logger.log(`Process has write access to ${appAsarPath}; install without elevation`)
 
-      const args = await getUpdateAsarViaBatArgs(
+      const args = await prepareWindowsUpdateHelper(
         appAsarPath,
         updateAsarPath,
         this.app.appDataPath,
@@ -416,6 +481,7 @@ export class ElectronUpdater implements LauncherAppUpdater {
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
       })
       x.unref()
       this.app.quit()
