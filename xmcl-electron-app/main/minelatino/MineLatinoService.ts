@@ -31,7 +31,7 @@ import {
 import { Inject, LauncherAppKey, type LauncherApp } from '@xmcl/runtime/app'
 import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
 import { LaunchService } from '~/launch'
-import { InstanceModsService, InstanceService } from '~/instance'
+import { InstanceModsService, InstanceOptionsService, InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
 import { VersionMetadataService } from '@xmcl/runtime/install'
 import { kUserTokenStorage } from '~/user'
@@ -1094,6 +1094,10 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
         shaderpacks: true,
       })
       this.log(`[autoInstance] Created instance at ${path}`)
+      // Minecraft stores Quake Pro (110°) as fov:1. Apply it only when this
+      // recommended profile is first created; later player changes are preserved.
+      const optionsService = await this.app.registry.get(InstanceOptionsService)
+      await optionsService.editGameSetting({ instancePath: path, fov: 1 })
       if (await this.#installPresetMods(preset, path)) {
         await this.#markPresetApplied(path, preset)
       }
