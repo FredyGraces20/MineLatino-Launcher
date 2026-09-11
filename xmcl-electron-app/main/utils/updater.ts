@@ -30,7 +30,6 @@ import { resolveBackendUrl } from '@/minelatino/config'
 import { kSettings } from '~/settings'
 import { checksum } from '~/util/fs'
 import ElectronLauncherApp from '../ElectronLauncherApp'
-import { ensureElevateExe } from './elevate'
 
 /**
  * The `app-<version>-<platform>[-<arch>].asar` name `build.ts` writes in its
@@ -196,7 +195,6 @@ async function getUpdateAsarViaBatArgs(
   appAsarPath: string,
   updateAsarPath: string,
   appDataPath: string,
-  elevatePath?: string,
 ): Promise<string[]> {
   const psPath = join(appDataPath, 'AutoUpdate.bat')
   const backupAsarPath = `${appAsarPath}.bk`
@@ -221,7 +219,7 @@ async function getUpdateAsarViaBatArgs(
     ].join('\r\n'),
   )
 
-  return elevatePath ? [elevatePath, psPath] : ['cmd.exe', '/c', psPath]
+  return ['cmd.exe', '/d', '/c', psPath]
 }
 /**
  * Download the full update. This size can be larger as it carry the whole electron thing...
@@ -379,8 +377,6 @@ export class ElectronUpdater implements LauncherAppUpdater {
 
     this.logger.log(`Install asar on ${this.app.platform.os} ${appAsarPath}`)
     if (this.app.platform.os === 'windows') {
-      const elevatePath = await ensureElevateExe(this.app.appDataPath)
-
       const appAsarPath = join(dirname(__dirname), 'app.asar')
       const updateAsarPath = join(this.app.appDataPath, 'pending_update')
 
@@ -388,7 +384,7 @@ export class ElectronUpdater implements LauncherAppUpdater {
         throw new Error(`No update found: ${updateAsarPath}`)
       }
 
-      let hasWriteAccess = await new Promise((resolve) => {
+      const hasWriteAccess = await new Promise<boolean>((resolve) => {
         open(appAsarPath, 'a', (e, fd) => {
           if (e) {
             resolve(false)
@@ -399,25 +395,27 @@ export class ElectronUpdater implements LauncherAppUpdater {
         })
       })
 
-      // force elevation for now
-      hasWriteAccess = false
-      this.logger.log(
-        hasWriteAccess
-          ? `Process has write access to ${appAsarPath}`
-          : `Process does not have write access to ${appAsarPath}`,
-      )
+      if (!hasWriteAccess) {
+        throw new AnyError(
+          'UpdateError',
+          'MineLatino no puede actualizarse porque la carpeta de instalación no permite escritura. Reinstala el launcher para tu usuario o elige una carpeta donde tengas permisos.',
+          {},
+          { appAsarPath },
+        )
+      }
+      this.logger.log(`Process has write access to ${appAsarPath}; install without elevation`)
 
       const args = await getUpdateAsarViaBatArgs(
         appAsarPath,
         updateAsarPath,
         this.app.appDataPath,
-        !hasWriteAccess ? elevatePath : undefined,
       )
       this.logger.log(`Install from windows: ${args.join(' ')}`)
       const x = spawn(args[0], args.slice(1), {
         cwd: this.app.appDataPath,
         detached: true,
         stdio: 'ignore',
+        windowsHide: true,
       })
       x.unref()
       this.app.quit()
