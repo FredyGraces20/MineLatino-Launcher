@@ -24,12 +24,12 @@ const canvas = ref<HTMLCanvasElement>()
 const container = ref<HTMLDivElement>()
 const loading = ref(true), error = ref('')
 let viewer: SkinViewer | undefined, observer: ResizeObserver | undefined
-let mesh: Mesh | undefined, attachment: Group | undefined
+let mesh: Mesh | undefined, attachment: Group | undefined, savedTransform: Group | undefined
 let request: AbortController | undefined
 function clearModel() {
   attachment?.removeFromParent()
   if (mesh) disposeCosmeticMesh(mesh)
-  mesh = undefined; attachment = undefined
+  mesh = undefined; attachment = undefined; savedTransform = undefined
 }
 function turn(back: boolean) {
   if (viewer) {
@@ -65,27 +65,41 @@ async function load() {
       if (active.signal.aborted || request !== active) { disposeCosmeticMesh(loaded); return }
       mesh = loaded
       attachment = new Group()
+      savedTransform = new Group()
       // skinview3d's nested Three declarations differ from the workspace declarations.
       const compatibleAttachment = attachment as unknown as Parameters<typeof target.playerObject.add>[0]
-      attachment.add(mesh)
+      attachment.add(savedTransform)
+      savedTransform.add(mesh)
       // Rotate cosmetic model 180° so it faces the camera (Blockbench front = -Z, camera at +Z).
       attachment.rotation.y = Math.PI
+      const configured = product.transform
+      if (configured) {
+        const [tx, ty, tz] = configured.translation
+        const [rx, ry, rz] = configured.rotation
+        savedTransform.position.set(-tx, ty, -tz)
+        savedTransform.rotation.set(-rx * Math.PI / 180, ry * Math.PI / 180, -rz * Math.PI / 180)
+        savedTransform.scale.set(...configured.scale)
+      }
       if (product.slot === 'HAT') {
         // CustomHeadLayer default: 0.625 scale, base at head Y=-0.25 in model-part space.
         attachment.position.set(0, 4, 0)
         attachment.scale.setScalar(0.625)
         const head = model.display?.head
-        mesh.position.set(...(head?.translation ?? [0,0,0]))
-        mesh.rotation.set(...((head?.rotation ?? [0,0,0]).map(v => v * Math.PI / 180) as [number,number,number]))
-        mesh.scale.set(...(head?.scale ?? [1,1,1]))
+        if (!configured) {
+          mesh.position.set(...(head?.translation ?? [0,0,0]))
+          mesh.rotation.set(...((head?.rotation ?? [0,0,0]).map(v => v * Math.PI / 180) as [number,number,number]))
+          mesh.scale.set(...(head?.scale ?? [1,1,1]))
+        }
         target.playerObject.skin.head.add(compatibleAttachment)
       } else if (product.slot === 'PET') {
-        attachment.position.set(-12.8, -8, 0)
+        // Same 1.15-block lateral anchor used by the web editor and game mod.
+        // It clears the animated player arm instead of placing the pet behind it.
+        attachment.position.set(-18.4, -8, 0)
         attachment.scale.setScalar(0.55)
         target.playerObject.add(compatibleAttachment)
       } else {
         attachment.position.set(0, 1.2, product.slot === 'BACKPACK' ? -4.8 : -2.56)
-        if (product.slot === 'BACKPACK' && model.display?.minelatino_backpack) {
+        if (!configured && product.slot === 'BACKPACK' && model.display?.minelatino_backpack) {
           const b = model.display.minelatino_backpack
           mesh.position.set(...(b.translation ?? [0,0,0]))
           mesh.rotation.set(...((b.rotation ?? [0,0,0]).map(v => v * Math.PI / 180) as [number,number,number]))

@@ -1,6 +1,12 @@
 import { onScopeDispose, ref } from 'vue'
 
 export const cosmeticSlots = { HAT: 'Cabeza', CAPE: 'Capa', WINGS: 'Alas', BACKPACK: 'Mochila', PET: 'Mascota' } as const
+export interface CosmeticTransform {
+  translation: [number, number, number]
+  rotation: [number, number, number]
+  scale: [number, number, number]
+  updatedAt?: number
+}
 export interface CosmeticProduct {
   id: string
   name: string
@@ -12,6 +18,7 @@ export interface CosmeticProduct {
   hasModel: boolean
   textureCount: number
   resourceVersion: string
+  transform: CosmeticTransform | null
 }
 
 // Public data only. Never place a provider secret or Minecraft token in Vite variables.
@@ -24,13 +31,17 @@ export function priceLabel(product: CosmeticProduct) {
 }
 export function parseProduct(value: unknown): CosmeticProduct {
   const p = value as CosmeticProduct
+  const vector = (input: unknown, positive = false) => Array.isArray(input) && input.length === 3
+    && input.every(value => typeof value === 'number' && Number.isFinite(value) && (!positive || value > 0))
   if (!p || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.id) || typeof p.name !== 'string'
     || !Object.hasOwn(cosmeticSlots, p.slot) || typeof p.description !== 'string'
     || !['USD', 'EUR', 'UYU', 'ARS', 'BRL', 'MXN'].includes(p.currency)
     || (p.amountMinor !== null && (!Number.isSafeInteger(p.amountMinor) || p.amountMinor <= 0))
     || typeof p.hasTexture !== 'boolean' || typeof p.hasModel !== 'boolean'
     || !Number.isSafeInteger(p.textureCount) || p.textureCount < 0 || p.textureCount > 32
-    || typeof p.resourceVersion !== 'string') {
+    || typeof p.resourceVersion !== 'string'
+    || (p.transform !== null && (!p.transform || !vector(p.transform.translation)
+      || !vector(p.transform.rotation) || !vector(p.transform.scale, true)))) {
     throw new Error('El catálogo devolvió un producto inválido')
   }
   return p
