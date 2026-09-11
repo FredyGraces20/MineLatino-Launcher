@@ -8,5 +8,8 @@ When a player uses a MineLatino account, the service processes the email address
 
 The launcher backend can receive ordinary HTTP metadata and the launcher version during configuration and update checks. If playtime features are enabled, it also receives the identity and signed session information needed to validate and aggregate playtime. Third-party services process data under their own privacy policies.
 
-Users can change their password and request account deletion through the launcher. Administrators can assist with recovery, suspension and deletion through the MineLatino panel. Security or privacy questions can be reported through [GitHub Security Advisories](https://github.com/FredyGraces20/MineLatino-Launcher/security/advisories/new).
+When the optional MineLatino AI assistant is used, the Cosmetics service associates the conversation, prompts, responses and token-usage counters with the same internal MineLatino account identifier. Prompt content is sent to the configured AI provider to generate a response; account passwords, launcher session secrets and administrative credentials are not included. Opening the assistant alone does not send a prompt.
 
+When AFK Farm is used, the MineLatino service associates the assigned time balance and server-calculated usage sessions with the same internal account identifier. The mod sends periodic authenticated heartbeats while automation is active so the service can update the remaining time; it does not send account passwords or provider credentials.
+
+Users can change their password and request account deletion through the launcher. Administrators can assist with recovery, suspension and deletion through the MineLatino panel. Security or privacy questions can be reported through [GitHub Security Advisories](https://github.com/FredyGraces20/MineLatino-Launcher/security/advisories/new).
