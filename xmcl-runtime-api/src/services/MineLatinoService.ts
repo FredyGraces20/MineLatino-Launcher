@@ -75,6 +75,8 @@ export interface MineLatinoPreset {
   icon?: string
   /** The preset the Play button offers when the player has no profile yet. */
   recommended?: boolean
+  /** Create this managed profile automatically on first launch or upgrade. */
+  autoCreate?: boolean
 }
 
 export interface MineLatinoStoreConfig {

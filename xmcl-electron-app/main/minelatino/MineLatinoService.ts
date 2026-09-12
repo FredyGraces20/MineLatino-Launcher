@@ -36,7 +36,7 @@ import { InstanceInstallService } from '~/instanceIO'
 import { VersionMetadataService } from '@xmcl/runtime/install'
 import { kUserTokenStorage } from '~/user'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
-import { findPresetInstanceCandidate } from './presetInstance'
+import { findPresetInstanceCandidate, selectAutoCreatePresets } from './presetInstance'
 import { MineLatinoWebWindows } from './webWindow'
 import { checksum } from '~/util/fs'
 
@@ -1013,10 +1013,10 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   }
 
   /**
-   * Ensure the recommended profile exists after both clean installs and
-   * launcher upgrades. Existing unrelated profiles never suppress it. A small
-   * marker in the instance records which starter set was applied so config
-   * refreshes do not repeatedly reinstall performance mods.
+   * Ensure every auto-created profile exists after clean installs and launcher
+   * upgrades. Existing unrelated profiles never suppress them. Older backends
+   * that do not send `autoCreate` retain the former recommended-profile
+   * behaviour.
    */
   #ensureDefaultInstanceThenSync(): Promise<void> {
     if (!this.#defaultInstanceSync) {
@@ -1029,82 +1029,91 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   async #ensureDefaultInstanceThenSyncInternal() {
     try {
       const instanceService = await this.app.registry.get(InstanceService)
-      const preset = this.#config.presets.find(p => p.recommended) ?? this.#config.presets[0]
-      if (!preset) {
+      const presets = selectAutoCreatePresets(this.#config.presets)
+      if (presets.length === 0) {
         this.warn('[autoInstance] No presets configured; skipping auto-creation.')
         return
       }
 
-      const existing = await this.#findPresetInstance(preset, instanceService)
-      if (existing) {
-        if (!(await this.#hasAppliedPreset(existing.path, preset))) {
-          this.log(`[autoInstance] Applying starter mods to existing recommended profile at ${existing.path}`)
-          if (await this.#installPresetMods(preset, existing.path)) {
-            await this.#markPresetApplied(existing.path, preset)
-          }
+      for (const preset of presets) {
+        try {
+          await this.#ensurePresetInstance(preset, instanceService)
+        } catch (error) {
+          this.warn(`[autoInstance] Failed to ensure "${preset.name}": ${(error as Error).message}`)
         }
-        await this.syncAutoMods()
-        return
-      }
-
-      this.log(`[autoInstance] Recommended profile missing — creating "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
-      const runtime: {
-        minecraft: string
-        fabricLoader?: string
-        quiltLoader?: string
-        forge?: string
-        neoForged?: string
-      } = { minecraft: preset.minecraftVersion }
-      const metadata = await this.app.registry.get(VersionMetadataService)
-      if (preset.loaderVersion) {
-        if (preset.loader === 'fabric') runtime.fabricLoader = preset.loaderVersion
-        else if (preset.loader === 'quilt') runtime.quiltLoader = preset.loaderVersion
-        else if (preset.loader === 'forge') runtime.forge = preset.loaderVersion
-        else if (preset.loader === 'neoforge') runtime.neoForged = preset.loaderVersion
-      } else if (preset.loader === 'fabric' || preset.loader === 'quilt') {
-        const fabric = preset.loader === 'fabric'
-        const loaderMetadata = fabric ? await metadata.getFabricVersions() : await metadata.getQuiltVersions()
-        if (!loaderMetadata.gameVersions.includes(preset.minecraftVersion)) {
-          this.warn(`[autoInstance] ${preset.loader} does not support Minecraft ${preset.minecraftVersion}; skipping.`)
-          return
-        }
-        const loaderVersion = loaderMetadata.loaderVersions[0]?.version
-        if (!loaderVersion) {
-          this.warn(`[autoInstance] No ${preset.loader} loader version available; skipping.`)
-          return
-        }
-        if (fabric) runtime.fabricLoader = loaderVersion
-        else runtime.quiltLoader = loaderVersion
-      } else if (preset.loader === 'forge') {
-        const versions = await metadata.getForgeVersions(preset.minecraftVersion)
-        const loaderVersion = versions.find(v => v.type === 'recommended')?.version ?? versions[0]?.version
-        if (!loaderVersion) { this.warn(`[autoInstance] Forge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
-        runtime.forge = loaderVersion
-      } else if (preset.loader === 'neoforge') {
-        const versions = await metadata.getNeoForgedVersions(preset.minecraftVersion)
-        const loaderVersion = versions.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0]
-        if (!loaderVersion) { this.warn(`[autoInstance] NeoForge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
-        runtime.neoForged = loaderVersion
-      }
-      const path = await instanceService.createInstance({
-        name: preset.name,
-        description: preset.description ?? '',
-        runtime,
-        resourcepacks: true,
-        shaderpacks: true,
-      })
-      this.log(`[autoInstance] Created instance at ${path}`)
-      // Minecraft stores Quake Pro (110°) as fov:1. Apply it only when this
-      // recommended profile is first created; later player changes are preserved.
-      const optionsService = await this.app.registry.get(InstanceOptionsService)
-      await optionsService.editGameSetting({ instancePath: path, fov: 1 })
-      if (await this.#installPresetMods(preset, path)) {
-        await this.#markPresetApplied(path, preset)
       }
       await this.syncAutoMods()
     } catch (error) {
-      this.warn(`[autoInstance] Failed to auto-create default instance: ${(error as Error).message}`)
+      this.warn(`[autoInstance] Failed to auto-create profiles: ${(error as Error).message}`)
       void this.syncAutoMods()
+    }
+  }
+
+  async #ensurePresetInstance(preset: MineLatinoPreset, instanceService: InstanceService) {
+    const existing = await this.#findPresetInstance(preset, instanceService)
+    if (existing) {
+      if (!(await this.#hasAppliedPreset(existing.path, preset))) {
+        this.log(`[autoInstance] Applying starter mods to existing profile at ${existing.path}`)
+        if (await this.#installPresetMods(preset, existing.path)) {
+          await this.#markPresetApplied(existing.path, preset)
+        }
+      }
+      return
+    }
+
+    this.log(`[autoInstance] Profile missing — creating "${preset.name}" (${preset.minecraftVersion} ${preset.loader})`)
+    const runtime: {
+      minecraft: string
+      fabricLoader?: string
+      quiltLoader?: string
+      forge?: string
+      neoForged?: string
+    } = { minecraft: preset.minecraftVersion }
+    const metadata = await this.app.registry.get(VersionMetadataService)
+    if (preset.loaderVersion) {
+      if (preset.loader === 'fabric') runtime.fabricLoader = preset.loaderVersion
+      else if (preset.loader === 'quilt') runtime.quiltLoader = preset.loaderVersion
+      else if (preset.loader === 'forge') runtime.forge = preset.loaderVersion
+      else if (preset.loader === 'neoforge') runtime.neoForged = preset.loaderVersion
+    } else if (preset.loader === 'fabric' || preset.loader === 'quilt') {
+      const fabric = preset.loader === 'fabric'
+      const loaderMetadata = fabric ? await metadata.getFabricVersions() : await metadata.getQuiltVersions()
+      if (!loaderMetadata.gameVersions.includes(preset.minecraftVersion)) {
+        this.warn(`[autoInstance] ${preset.loader} does not support Minecraft ${preset.minecraftVersion}; skipping.`)
+        return
+      }
+      const loaderVersion = loaderMetadata.loaderVersions[0]?.version
+      if (!loaderVersion) {
+        this.warn(`[autoInstance] No ${preset.loader} loader version available; skipping.`)
+        return
+      }
+      if (fabric) runtime.fabricLoader = loaderVersion
+      else runtime.quiltLoader = loaderVersion
+    } else if (preset.loader === 'forge') {
+      const versions = await metadata.getForgeVersions(preset.minecraftVersion)
+      const loaderVersion = versions.find(v => v.type === 'recommended')?.version ?? versions[0]?.version
+      if (!loaderVersion) { this.warn(`[autoInstance] Forge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
+      runtime.forge = loaderVersion
+    } else if (preset.loader === 'neoforge') {
+      const versions = await metadata.getNeoForgedVersions(preset.minecraftVersion)
+      const loaderVersion = versions.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0]
+      if (!loaderVersion) { this.warn(`[autoInstance] NeoForge does not support Minecraft ${preset.minecraftVersion}; skipping.`); return }
+      runtime.neoForged = loaderVersion
+    }
+    const path = await instanceService.createInstance({
+      name: preset.name,
+      description: preset.description ?? '',
+      runtime,
+      resourcepacks: true,
+      shaderpacks: true,
+    })
+    this.log(`[autoInstance] Created instance at ${path}`)
+    // Minecraft stores Quake Pro (110°) as fov:1. Apply it only when this
+    // managed profile is first created; later player changes are preserved.
+    const optionsService = await this.app.registry.get(InstanceOptionsService)
+    await optionsService.editGameSetting({ instancePath: path, fov: 1 })
+    if (await this.#installPresetMods(preset, path)) {
+      await this.#markPresetApplied(path, preset)
     }
   }
 
