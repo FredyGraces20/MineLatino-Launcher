@@ -33,7 +33,7 @@ import { AbstractService, ExposeServiceKey } from '@xmcl/runtime/service'
 import { LaunchService } from '~/launch'
 import { InstanceModsService, InstanceOptionsService, InstanceService } from '~/instance'
 import { InstanceInstallService } from '~/instanceIO'
-import { VersionMetadataService } from '@xmcl/runtime/install'
+import { VersionInstallService, VersionMetadataService } from '@xmcl/runtime/install'
 import { kUserTokenStorage } from '~/user'
 import { FALLBACK_CONFIG, normalizeConfig, resolveBackendUrl } from './config'
 import { findPresetInstanceCandidate, selectAutoCreatePresets } from './presetInstance'
@@ -63,6 +63,8 @@ const STORE_PRODUCTS_TTL_MS = 5 * 60_000
 /** Periodic refresh while the launcher stays open. */
 const REFRESH_INTERVAL_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 15_000
+/** Avoid repeating a full version diagnosis while the selected profile is unchanged. */
+const PREPARED_INSTANCE_TTL_MS = 10 * 60_000
 const COSMETICS_API = (process.env.MINELATINO_COSMETICS_API || 'https://minelatino-cosmetics-production.up.railway.app').replace(/\/$/, '')
 const COSMETICS_SECRET_SERVICE = 'MineLatino Cosmetics'
 const COSMETICS_SECRET_ACCOUNT = 'player-session'
@@ -190,6 +192,8 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
   #refreshing: Promise<void> | undefined
   #defaultInstanceSync: Promise<void> | undefined
   #autoModsSync: Promise<void> | undefined
+  #instancePreparations = new Map<string, Promise<void>>()
+  #preparedInstances = new Map<string, { fingerprint: string, preparedAt: number }>()
   #timer: NodeJS.Timeout | undefined
   #windows: MineLatinoWebWindows
   #playtimeSessions = new Map<string, Promise<string | undefined>>()
@@ -1144,10 +1148,22 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
 
     const instanceService = await this.app.registry.get(InstanceService)
     const installService = await this.app.registry.get(InstanceInstallService)
-    const instances = instanceService.state.all
+    await this.#syncAutoModsForInstances(
+      Object.entries(instanceService.state.all),
+      installService,
+    )
+  }
 
-    for (const [instancePath, instance] of Object.entries(instances)) {
-      const runtime = (instance as Record<string, unknown>).runtime as Record<string, unknown> | undefined
+  async #syncAutoModsForInstances(
+    instances: Array<[string, unknown]>,
+    installService: InstanceInstallService,
+  ): Promise<void> {
+    const autoMods = this.#config.autoMods
+    if (!autoMods || autoMods.length === 0) return
+
+    for (const [instancePath, rawInstance] of instances) {
+      const instance = asObject(rawInstance)
+      const runtime = asObject(instance.runtime)
       if (!runtime) continue
       const minecraft = asString(runtime.minecraft)
       const loader = this.#instanceLoader(runtime)
@@ -1180,7 +1196,7 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
           : false
         if (!existingValid) {
           try {
-            this.log(`[autoMods] Downloading and verifying ${mod.name} ${match.modVersion} for ${instance.name || instancePath}`)
+            this.log(`[autoMods] Downloading and verifying ${mod.name} ${match.modVersion} for ${asString(instance.name) || instancePath}`)
             await installService.installInstanceFiles({
               path: instancePath,
               oldFiles: [],
@@ -1202,12 +1218,114 @@ export class MineLatinoService extends AbstractService implements IMineLatinoSer
           try {
             await remove(join(instancePath, 'mods', file))
             existingMods.delete(file.toLowerCase())
-            this.log(`[autoMods] Removed old ${file} from ${instance.name || instancePath}`)
+            this.log(`[autoMods] Removed old ${file} from ${asString(instance.name) || instancePath}`)
           } catch (err) {
             this.warn(`[autoMods] Failed to remove old ${file}: ${(err as Error).message}`)
           }
         }
       }
     }
+  }
+
+  /**
+   * Stable description of everything this service owns for a prepared
+   * profile. A backend auto-mod update changes the fingerprint immediately,
+   * while unrelated news/store refreshes do not invalidate useful work.
+   */
+  #preparationFingerprint(rawInstance: unknown): string {
+    const instance = asObject(rawInstance)
+    const runtime = asObject(instance.runtime)
+    const minecraft = asString(runtime.minecraft)
+    const loader = this.#instanceLoader(runtime)
+    const autoMods = loader
+      ? this.#config.autoMods.flatMap((mod) => {
+          const match = this.#findMatchingVersion(mod, minecraft, loader)
+          return match ? [`${mod.id}:${match.fileName}:${match.sha1}`] : []
+        }).sort()
+      : []
+    return JSON.stringify({
+      version: asString(instance.version),
+      runtime: Object.entries(runtime).sort(([a], [b]) => a.localeCompare(b)),
+      autoMods,
+    })
+  }
+
+  /**
+   * Downloads the selected profile's heavy dependencies ahead of Play.
+   *
+   * Jobs are keyed by profile path, so the selection watcher, repeated UI
+   * renders and a near-simultaneous Play click all await the same operation.
+   * Successful work is cached briefly; launch-time validation remains the
+   * final safety net if a player edits files outside the launcher afterwards.
+   */
+  prepareInstance(instancePath: string): Promise<void> {
+    const normalizedPath = instancePath.trim()
+    if (!normalizedPath) return Promise.resolve()
+    const active = this.#instancePreparations.get(normalizedPath)
+    if (active) return active
+
+    const preparation = this.#prepareInstanceInternal(normalizedPath)
+      .finally(() => { this.#instancePreparations.delete(normalizedPath) })
+    this.#instancePreparations.set(normalizedPath, preparation)
+    return preparation
+  }
+
+  async #prepareInstanceInternal(instancePath: string): Promise<void> {
+    const instanceService = await this.app.registry.get(InstanceService)
+    const initial = instanceService.state.all[instancePath]
+    if (!initial || asString((initial as Record<string, unknown>).edition) === 'bedrock') return
+
+    const initialFingerprint = this.#preparationFingerprint(initial)
+    const cached = this.#preparedInstances.get(instancePath)
+    if (
+      cached?.fingerprint === initialFingerprint
+      && Date.now() - cached.preparedAt < PREPARED_INSTANCE_TTL_MS
+    ) return
+
+    const initialRecord = initial as unknown as Record<string, unknown>
+    const requestedRuntime = { ...asObject(initialRecord.runtime) }
+    const requestedVersion = asString(initialRecord.version) || undefined
+    this.log(`[prepare] Preparing selected profile ${asString(initialRecord.name) || instancePath}`)
+
+    const versionInstallService = await this.app.registry.get(VersionInstallService)
+    const installed = await versionInstallService.installInstance({
+      type: 'instance',
+      instancePath,
+      runtime: requestedRuntime,
+      selectedVersion: requestedVersion,
+    } as Parameters<VersionInstallService['installInstance']>[0])
+
+    const latest = instanceService.state.all[instancePath]
+    if (!latest) return
+    const latestRecord = latest as unknown as Record<string, unknown>
+    const latestRuntime = asObject(latestRecord.runtime)
+    const runtimeUnchanged = Object.entries(requestedRuntime).every(
+      ([key, value]) => latestRuntime[key] === value,
+    )
+    if (asString(latestRecord.version) !== (requestedVersion ?? '') || !runtimeUnchanged) {
+      this.warn(`[prepare] Profile changed while preparing; leaving the new selection untouched: ${instancePath}`)
+      return
+    }
+    if (asString(latestRecord.version) !== installed.version) {
+      await instanceService.editInstance({ instancePath, version: installed.version })
+    }
+
+    // A periodic all-profile synchronization may already own this work. Await
+    // it rather than starting a second checksum/download pass for the same JAR.
+    if (this.#autoModsSync) {
+      await this.#autoModsSync
+    } else {
+      const installService = await this.app.registry.get(InstanceInstallService)
+      await this.#syncAutoModsForInstances([[instancePath, instanceService.state.all[instancePath]]], installService)
+    }
+
+    const prepared = instanceService.state.all[instancePath]
+    if (prepared) {
+      this.#preparedInstances.set(instancePath, {
+        fingerprint: this.#preparationFingerprint(prepared),
+        preparedAt: Date.now(),
+      })
+    }
+    this.log(`[prepare] Selected profile is ready: ${instancePath}`)
   }
 }

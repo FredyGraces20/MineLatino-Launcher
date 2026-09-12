@@ -400,6 +400,13 @@ export interface MineLatinoService extends GenericEventEmitter<MineLatinoService
    */
   syncAutoMods(): Promise<void>
 
+  /**
+   * Prepares one profile before the player presses Play. The main process
+   * installs/repairs its Minecraft runtime, libraries, assets, Java runtime and
+   * MineLatino auto-mods. Concurrent calls for the same profile share one job.
+   */
+  prepareInstance(instancePath: string): Promise<void>
+
   getCosmeticsAccount(): Promise<MineLatinoCosmeticsAccount | undefined>
   registerCosmeticsAccount(input: Required<MineLatinoAccountCredentials>): Promise<MineLatinoCosmeticsAccount>
   loginCosmeticsAccount(input: MineLatinoAccountCredentials): Promise<MineLatinoCosmeticsAccount>
