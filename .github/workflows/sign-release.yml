@@ -96,7 +96,7 @@ jobs:
 
       - name: Upload unsigned installer for provenance
         id: upload-artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: minelatino-windows-unsigned-${{ inputs.tag }}
           path: xmcl-electron-app/build/output/minelatino-*-win32-x64.exe

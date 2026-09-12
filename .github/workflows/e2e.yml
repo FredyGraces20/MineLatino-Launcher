@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-safety-net-${{ matrix.os }}
           path: e2e/artifacts/**
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-packaged-boot-${{ matrix.os }}
           path: e2e/artifacts/**
@@ -227,7 +227,7 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-showcase-${{ matrix.os }}
           path: |
